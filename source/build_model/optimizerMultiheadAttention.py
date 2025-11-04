@@ -1,11 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
 import time
 
 class OptimizedFlashMHA(nn.Module):
-    def __init__(self, embed_dim=512, num_heads=8, dropout=0.0, bias=True):
+    def __init__(self, embed_dim=512, num_heads=8, dropout=0.1, bias=True):
         super().__init__()
         assert embed_dim % num_heads == 0
         self.embed_dim = embed_dim
@@ -16,7 +15,7 @@ class OptimizedFlashMHA(nn.Module):
         # gom 3 projection Q,K,V chung một ma trận để tối ưu cache
         self.in_proj_weight = nn.Parameter(torch.empty(3 * embed_dim, embed_dim))
         self.in_proj_bias = nn.Parameter(torch.empty(3 * embed_dim)) if bias else None
-        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=True)
         self._reset_parameters()
 
     def _reset_parameters(self):
@@ -24,7 +23,7 @@ class OptimizedFlashMHA(nn.Module):
         if self.in_proj_bias is not None:
             nn.init.constant_(self.in_proj_bias, 0.)
 
-    def forward(self, query, key, value, attn_mask=None, key_padding_mask=None, is_causal=False):
+    def forward(self, query, key, value, key_padding_mask, is_causal=False):
         B, T, C = query.shape
         src_len = key.size(1)
 
@@ -45,37 +44,32 @@ class OptimizedFlashMHA(nn.Module):
 
         # [B, heads, T, head_dim]
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
-
+        
         # === Chuẩn hoá mask ===
         # key_padding_mask: (B, src_len) → broadcast đúng chiều [B, 1, 1, src_len]
         if key_padding_mask is not None:
             key_padding_mask = key_padding_mask.view(B, 1, 1, src_len)
-            attn_mask = (
-                key_padding_mask if attn_mask is None
-                else attn_mask + key_padding_mask
-            )
-
         # === FlashAttention kernel ===
         # Hàm này tự scale QKᵀ / √d, softmax, dropout và nhân V trong GPU kernel
         attn_output = F.scaled_dot_product_attention(
             q, k, v,
-            attn_mask=attn_mask,
+            attn_mask=key_padding_mask,
             dropout_p=self.dropout_p if self.training else 0.0,
-            is_causal=is_causal
+            is_causal=is_causal # mask sẽ được sử dụng sau khi tính score
         )
-
         # === Output projection ===
         attn_output = attn_output.transpose(1, 2).reshape(B, T, C)
         attn_output = self.out_proj(attn_output)
 
         return attn_output
-
+        
 # ======== Chuẩn benchmark ========
 @torch.inference_mode()
 def benchmark(model_fn, name, device="cuda", dtype=torch.float32, B=16, T=512, C=512, heads=8, runs=100):
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats(device)
-
+    key_padding_mask = torch.zeros(B, T, dtype=torch.bool, device=device)
+    key_padding_mask[:, -3:] = True  # ví dụ: che 3 token cuối mỗi batch
     x = torch.randn(B, T, C, device=device, dtype=dtype)
     model = model_fn(C, heads).to(device, dtype=dtype).eval()
 
@@ -87,7 +81,7 @@ def benchmark(model_fn, name, device="cuda", dtype=torch.float32, B=16, T=512, C
     # Timing
     start = time.perf_counter()
     for _ in range(runs):
-        _ = model(x, x, x) if isinstance(model, OptimizedFlashMHA) else model(x, x, x)[0]
+        _ = model.forward(x, x, x, key_padding_mask=key_padding_mask) if isinstance(model, OptimizedFlashMHA) else model.forward(x, x, x, key_padding_mask=key_padding_mask)[0]
     torch.cuda.synchronize()
     end = time.perf_counter()
 
@@ -112,3 +106,13 @@ if __name__ == "__main__":
     print("\n=== Large batch test (B=64) ===")
     benchmark(OptimizedFlashMHA, "Custom Flash MHA", device, torch.float16, B=64)
     benchmark(lambda C, H: nn.MultiheadAttention(C, H, batch_first=True), "PyTorch MHA (builtin)", device, torch.float16, B=64)
+    # x = torch.randn(16, 500, 512, device=device, dtype=torch.float32).to(device=device)
+    # model = OptimizedFlashMHA().to(device=device)
+    # # warm up
+    # for _ in range(10):
+    #     rs = model(x, x, x)
+    # start = time.time()
+    # result = model(x, x, x)
+    # total_time = (time.time() - start) * 1000 # ms
+    
+    # print(f'kich thuoc dau ra: {result.shape}\n tổng thời gian chạy: {total_time}')

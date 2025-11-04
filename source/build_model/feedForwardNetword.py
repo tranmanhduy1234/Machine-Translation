@@ -1,13 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
 
 class FeedForwardNetwork_standard(nn.Module):
     def __init__(self, d_model=512, d_ff=2048, dropout=0.1, activation='relu'):
         super().__init__()
-        self.linear1 = nn.Linear(d_model, d_ff)
-        self.linear2 = nn.Linear(d_ff, d_model)
+        self.linear1 = nn.Linear(d_model, d_ff, bias=True)
+        self.linear2 = nn.Linear(d_ff, d_model, bias=True)
         self.dropout = nn.Dropout(dropout)
         
         if activation == 'relu':
@@ -18,7 +17,12 @@ class FeedForwardNetwork_standard(nn.Module):
             self.activation = nn.SiLU()
         else:
             raise ValueError(f"Unknown activation: {activation}")
-    
+        self._reset_parameters()
+        
+    def _reset_parameters(self):
+        nn.init.xavier_uniform_(self.linear1.weight)
+        nn.init.xavier_uniform_(self.linear2.weight)
+        
     def forward(self, x):
         x = self.linear1(x)
         x = self.activation(x)
@@ -192,7 +196,7 @@ if __name__ == "__main__":
     x = torch.randn(B, T, d_model, device=device)
     
     models = [
-        ("Standard FFN", FeedForwardNetwork(d_model, d_ff)),
+        ("Standard FFN", FeedForwardNetwork_standard(d_model, d_ff)),
         ("GLUFN", GLUFFNVariant(d_model, d_ff)),
         ("GeGLU", GeGLUFFN(d_model, d_ff)),
         ("Optimized FFN", OptimizedFFN(d_model, d_ff)),

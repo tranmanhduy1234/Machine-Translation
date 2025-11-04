@@ -4,25 +4,27 @@ from optimizerMultiheadAttention import OptimizedFlashMHA
 from feedForwardNetword import FeedForwardNetwork_standard
 import time
 
+# input: [batch_size, seq_len, d_model] -> output: [batch_size, seq_len, d_model]
 class EncoderBlock(nn.Module):
-    def __init__(self, embed_dim, num_heads, ffn_hidden_dim, dropout=0.1):
+    def __init__(self, embed_dim, num_heads, ffn_hidden_dim, dropout):
         super().__init__()
-        # Giả sử bạn đã có class OptimizerMHA và FFN
-        self.mha = OptimizedFlashMHA(embed_dim=embed_dim, num_heads=num_heads)
-        self.ffn = FeedForwardNetwork_standard(d_model=embed_dim, d_ff=ffn_hidden_dim, activation='swish')
+        self.mha = OptimizedFlashMHA(embed_dim=embed_dim, num_heads=num_heads, bias=False, dropout=dropout)
+        self.ffn = FeedForwardNetwork_standard(d_model=embed_dim, d_ff=ffn_hidden_dim, activation='swish', dropout=dropout)
         self.norm1 = nn.LayerNorm(embed_dim)
         self.norm2 = nn.LayerNorm(embed_dim)
         self.dropout = nn.Dropout(dropout)
-    def forward(self, x):
-        mha_out = self.mha(x, x, x)  
-        x = self.norm1(x + self.dropout(mha_out))
-        ffn_out = self.ffn(x)  
-        x = self.norm2(x + self.dropout(ffn_out))
+    def forward(self, x, key_padding_mask):
+        x = self.norm1(x)
+        mha_out = self.mha(x, x, x, key_padding_mask=key_padding_mask, is_causal=False)
+        x = x + self.dropout(mha_out)
+        ffn_out = self.ffn(x)
+        x = self.norm2(x)
+        x = x + self.dropout(ffn_out)
         return x
     
 if __name__=="__main__":
     batch_size = 16
-    seq_len = 100
+    seq_len = 1000
     embed_dim = 512
     num_heads = 8
     ffn_hidden_dim = 2048
