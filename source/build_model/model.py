@@ -34,7 +34,8 @@ class Transformer2025(nn.Module):
             for _ in range(num_layer_dec)
         ])
         # Lớp Linear cuối cùng 
-        self.output_projection = nn.Linear(self.d_model, self.vocab_size, bias=True)
+        self.output_projection = nn.Linear(self.d_model, self.vocab_size, bias=False)
+        self.output_projection.weight = self.embedding.token_embed.weight # Buộc trọng số
         # đặt softmax phía ngoài model
     def forward(self, src, tgt, src_kpmask = None, tgt_kpmask=None):
         # src, tgt đều có định dạng [batch_size, seq_len]
@@ -61,30 +62,3 @@ class Transformer2025(nn.Module):
     def get_device(self):
         """Lấy device hiện tại của model"""
         return next(self.parameters()).device
-    
-# đầu vào yêu cầu của model định dạng [batch_size, seq_len]
-model = Transformer2025()
-sentences = [
-    "Học máy là một lĩnh vực của trí tuệ nhân tạo. 12 312 4213",
-    "Tôi tên là Trần Bá Dũng.",
-    "Dự án này liên quan đến phát hiện buồn ngủ.",
-    "Thử một từ sai: Học máy.",
-    "Trong xã hội của chúng ta còn nhiều con người",
-    "chịu nhiều thiệt thòi đó họ không đầu hàng số phận không chấp nhận mình sẽ là gánh nặng của gia đình và xã hội họ cố gắng vươn lên trong cuộc sống của chính mình quả là một điều thật sự đáng ngưỡng mộ. Như thầy giáo Nguyễn Ngọc Kí một con người đã chịu rất",
-    "Một tên riêng: Phở Thìn Lò Đúc. Traditional",
-    "Disadvantaged people, when they were born, were not healthy, but thanks to their extraordinary will and determination to live, they have risen to become successful people who are not inferior to healthy people. Even many young people are healthy and whole, but their efforts in life are not. They let bad habits in life tempt them and then become criminals who commit terrible crimes. These young people are truly a burden to society, they really do not know how to take advantage of the advantages that life and nature have given them, wasting their future youth. Meanwhile, many people are born due to the effects of Agent Orange, or because of nature, they are disadvantaged when they are born, but they always live useful lives, have their own dreams and ambitions"
-]
-sp = spm.SentencePieceProcessor()
-sp.Load(r"D:\chuyen_nganh\Machine Translation version2\pre-handle\unigram_32000.model")
-
-encoded = [sp.EncodeAsIds(s) for s in sentences]
-
-max_len = max(len(seq) for seq in encoded)
-pad_id = sp.PieceToId("<pad>") if sp.PieceToId("<pad>") != 0 else 0
-
-padded = [seq + [pad_id] * (max_len - len(seq)) for seq in encoded]
-x = torch.tensor(padded, dtype=torch.long) # batch_size, seq_len
-
-print("Input shape:", x.shape)
-print(model(x, x).shape)
-print(f"Model Size: {model.count_parameters()}")
