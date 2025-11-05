@@ -28,3 +28,4 @@ Early Stopping
 - Search Methods: Grid Search, Random Search, Bayesian Optimization
 - Evaluation
 - Monitoring & Inference
+- Cân nhắc chuyển đổi LayerNorm qua RMSNorm

@@ -1,10 +1,8 @@
-from base64 import encode
 import torch
 import torch.nn as nn
 from decoderblock import DecoderBlock
 from embedding import Embedding
 from encoderblock import EncoderBlock
-import sentencepiece as spm
 
 class Transformer2025(nn.Module):
     def __init__(self, num_layer_enc = 6, num_layer_dec = 6, d_model = 512, 
@@ -63,3 +61,21 @@ class Transformer2025(nn.Module):
     def get_device(self):
         """Lấy device hiện tại của model"""
         return next(self.parameters()).device
+    
+from torchviz import make_dot
+
+model = Transformer2025().to('cuda')
+x = torch.randint(0, 32000, (16, 512), device='cuda')  # ví dụ vocab_size=10000, seq_len=512
+
+Y = model(x, x)
+loss = Y.sum()
+
+# visualize before backward
+dot = make_dot(loss, params=dict(model.named_parameters()))
+dot.render("linear_cuda_graph", format="png")
+
+# compute gradients
+loss.backward(retain_graph=True)
+
+print("Grad X:", x.grad)
+print("Graph saved as linear_cuda_graph.png")
