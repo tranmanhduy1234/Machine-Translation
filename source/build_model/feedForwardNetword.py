@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class FeedForwardNetwork_standard(nn.Module):
-    def __init__(self, d_model=512, d_ff=2048, dropout=0.1, activation='relu'):
+    def __init__(self, d_model=512, d_ff=2048, dropout=0.1, activation='gelu'):
         super().__init__()
         self.linear1 = nn.Linear(d_model, d_ff, bias=True)
         self.linear2 = nn.Linear(d_ff, d_model, bias=True)
@@ -161,7 +161,6 @@ class OptimizedFFN(nn.Module):
         x = self.activation(x)
         x = self.dropout(x)
         x = self.linear2(x)
-        x = self.dropout(x)
         return x
 
 class CompressedFFN(nn.Module):

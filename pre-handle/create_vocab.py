@@ -143,7 +143,6 @@ df.to_csv('tokenizer_efficiency_results.csv', index=False)
 print("\n✓ Results saved to 'tokenizer_efficiency_results.csv'")
 
 # Tạo file text phục vụ sinh từ điển từ dataset
- """
 from datasets import load_dataset
 import random
 
@@ -170,4 +169,3 @@ with open(out_file, "w", encoding="utf-8") as f:
             f.write(line.strip() + "\n")
 
 print(f"Đã ghi xong: {out_file}")
-"""

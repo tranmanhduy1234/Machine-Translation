@@ -76,29 +76,29 @@
 #     print()
 
 # ------------------------------------------------------------------------------------------------------------
-# import sentencepiece as spm
+import sentencepiece as spm
 
-# sp = spm.SentencePieceProcessor()
-# sp.Load("unigram_32000.model")
+sp = spm.SentencePieceProcessor()
+sp.Load(r"D:\chuyen_nganh\Machine Translation version2\pre-handle\unigram_32000.model")
 
-# print(f"Vocab size: {sp.GetPieceSize()}")
+print(f"Vocab size: {sp.GetPieceSize()}")
 
-# sentences = [
-#     "Học máy là một lĩnh vực của trí tuệ nhân tạo.",
-#     "Tôi tên là Trần Bá Dũng.",
-#     "Dự án này liên quan đến phát hiện buồn ngủ.",
-#     "Thử một từ sai: Hcoj máy.",
-#     "Trong xã hội của chúng ta còn nhiều con người",
-#     "chịu nhiều thiệt thòi đó họ không đầu hàng số phận không chấp nhận mình sẽ là gánh nặng của gia đình và xã hội họ cố gắng vươn lên trong cuộc sống của chính mình quả là một điều thật sự đáng ngưỡng mộ. Như thầy giáo Nguyễn Ngọc Kí một con người đã chịu rất",
-#     "Một tên riêng: Phở Thìn Lò Đúc. Traditional",
-#     "Disadvantaged people, when they were born, were not healthy, but thanks to their extraordinary will and determination to live, they have risen to become successful people who are not inferior to healthy people. Even many young people are healthy and whole, but their efforts in life are not. They let bad habits in life tempt them and then become criminals who commit terrible crimes. These young people are truly a burden to society, they really do not know how to take advantage of the advantages that life and nature have given them, wasting their future youth. Meanwhile, many people are born due to the effects of Agent Orange, or because of nature, they are disadvantaged when they are born, but they always live useful lives, have their own dreams and ambitions"
-# ]
+sentences = [
+    "Học máy là một lĩnh vực của trí tuệ nhân tạo.",
+    "Tôi tên là Trần Bá Dũng.",
+    "Dự án này liên quan đến phát hiện buồn ngủ.",
+    "Thử một từ sai: Hcoj máy.",
+    "Trong xã hội của chúng ta còn nhiều con người",
+    "chịu nhiều thiệt thòi đó họ không đầu hàng số phận không chấp nhận mình sẽ là gánh nặng của gia đình và xã hội họ cố gắng vươn lên trong cuộc sống của chính mình quả là một điều thật sự đáng ngưỡng mộ. Như thầy giáo Nguyễn Ngọc Kí một con người đã chịu rất",
+    "Một tên riêng: Phở Thìn Lò Đúc. Traditional",
+    "Disadvantaged people, when they were born, were not healthy, but thanks to their extraordinary will and determination to live, they have risen to become successful people who are not inferior to healthy people. Even many young people are healthy and whole, but their efforts in life are not. They let bad habits in life tempt them and then become criminals who commit terrible crimes. These young people are truly a burden to society, they really do not know how to take advantage of the advantages that life and nature have given them, wasting their future youth. Meanwhile, many people are born due to the effects of Agent Orange, or because of nature, they are disadvantaged when they are born, but they always live useful lives, have their own dreams and ambitions"
+]
 
-# print("\n--- Kết quả Tokenization ---")
-# for s in sentences:
-#     pieces = sp.EncodeAsPieces(s)
-#     ids = sp.EncodeAsIds(s)
+print("\n--- Kết quả Tokenization ---")
+for s in sentences:
+    pieces = sp.EncodeAsPieces(s)
+    ids = sp.EncodeAsIds(s)
     
-#     print(f"\nCâu gốc: {s}")
-#     print(f"Tokens: {pieces}")
+    print(f"\nCâu gốc: {s}")
+    print(f"Tokens: {pieces}")
 # # ------------------------------------------------------------------------------------------------------------

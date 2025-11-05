@@ -18,9 +18,10 @@ class Transformer2025(nn.Module):
         self.dropout_p = dropout_p
         self.vocab_size = vocab_size
         self.max_length = max_len
+        
         # các thành phần
         # Lớp embedding learnable
-        self.embedding = Embedding(self.vocab_size, self.d_model, self.max_length, self.dropout_p) # buộc trọng số bằng cách nào
+        self.embedding = Embedding(self.vocab_size, self.d_model, self.max_length, self.dropout_p)
         # Khối encoder
         self.encoder_component = nn.ModuleList([
             EncoderBlock(embed_dim=self.d_model, num_heads=self.num_of_heads, 
@@ -51,7 +52,7 @@ class Transformer2025(nn.Module):
         # forward decoder
         for decoder_layer in self.decoder_component:
             decoder_output = decoder_layer(decoder_output, encoder_output, key_padding_mask_tgt = tgt_kpmask, key_padding_mask_src = src_kpmask)
-            
+    
         logits = self.output_projection(decoder_output)
         return logits
     
