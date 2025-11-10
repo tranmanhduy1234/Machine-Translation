@@ -1,11 +1,10 @@
+"""
+THÀNH PHẦN DECODER LAYER
+"""
 import torch
 import torch.nn as nn
 from optimizerMultiheadAttention import OptimizedFlashMHA
 from feedForwardNetword import FeedForwardNetwork_standard
-import time
-import psutil
-import os
-from torch.profiler import profile, record_function, ProfilerActivity
 
 # input: [batch_size, seq_len, d_model] -> output: [batch_size, seq_len, d_model]
 class DecoderBlock(nn.Module):

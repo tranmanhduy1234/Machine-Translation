@@ -1,3 +1,6 @@
+"""
+THÀNH PHẦN ĐÁNH GIÁ TỐC ĐỘ SO VỚI MODEL MarianMT
+"""
 import torch
 import time
 from transformers import MarianMTModel, MarianTokenizer

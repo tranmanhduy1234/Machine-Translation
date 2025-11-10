@@ -5,7 +5,8 @@ import time
 from pathlib import Path
 
 # 1. Huấn luyện các tokenizer với vocab_size khác nhau
-vocab_sizes = [8000, 16000, 32000, 64000]
+# vocab_sizes = [8000, 16000, 32000, 64000]
+vocab_sizes = [32000]
 results = []
 
 print("=" * 70)
@@ -17,10 +18,14 @@ for v in vocab_sizes:
     start_time = time.time()
     
     spm.SentencePieceTrainer.train(
-        input='merged_shuffled.txt',
+        input=r'D:\chuyen_nganh\Machine Translation version2\pre-handle\merged_shuffled.txt',
         model_prefix=f'unigram_{v}',
         vocab_size=v,
-        model_type='unigram'
+        model_type='unigram',
+        unk_id=0,
+        bos_id=1,
+        eos_id=2,
+        pad_id=3
     )
     
     train_time = time.time() - start_time
@@ -33,7 +38,7 @@ print("=" * 70)
 
 # Đọc file một lần
 print("\nLoading text file...")
-with open('merged_shuffled.txt', encoding='utf-8') as f:
+with open(r'D:\chuyen_nganh\Machine Translation version2\pre-handle\merged_shuffled.txt', encoding='utf-8') as f:
     sentences = [line.strip() for line in f if line.strip()]
 
 total_chars = sum(len(s) for s in sentences)
@@ -108,11 +113,11 @@ print("\n" + "=" * 70)
 print("COMPARISON WITH BASELINE (vocab_size=16000)")
 print("=" * 70)
 
-baseline_idx = 1  # vocab_size=16000
+baseline_idx = 0  # vocab_size=16000
 baseline_tokens = results[baseline_idx]['total_tokens']
 baseline_speed = results[baseline_idx]['tokenization_speed']
 
-print(f"\nBaseline: vocab_size=16000 ({baseline_tokens:,} tokens)")
+print(f"\nBaseline: vocab_size=32000 ({baseline_tokens:,} tokens)")
 
 for i, v in enumerate(vocab_sizes):
     if i == baseline_idx:
@@ -132,7 +137,7 @@ print("=" * 70)
 
 best_compression = max(results, key=lambda x: x['compression_ratio'])
 best_speed = max(results, key=lambda x: x['tokenization_speed'])
-best_balanced = results[1]  # vocab_size=16000 thường là cân bằng
+best_balanced = results[0] 
 
 print(f"\n✓ Best compression ratio: vocab_size={best_compression['vocab_size']} ({best_compression['compression_ratio']:.4f})")
 print(f"✓ Fastest tokenization: vocab_size={best_speed['vocab_size']} ({best_speed['tokenization_speed']:.1f} sent/sec)")
@@ -142,30 +147,31 @@ print(f"✓ Balanced choice: vocab_size={best_balanced['vocab_size']}")
 df.to_csv('tokenizer_efficiency_results.csv', index=False)
 print("\n✓ Results saved to 'tokenizer_efficiency_results.csv'")
 
+# -----------------------------------------------------------------------------------------------------------------
 # Tạo file text phục vụ sinh từ điển từ dataset
-from datasets import load_dataset
-import random
+# from datasets import load_dataset
+# import random
 
-ds = load_dataset("ncduy/mt-en-vi")
+# ds = load_dataset("ncduy/mt-en-vi")
 
-texts = []
+# texts = []
 
-for split in ["train", "validation", "test"]:
-    if split in ds:
-        dset = ds[split]
-        texts.extend(dset["en"])
-        texts.extend(dset["vi"])
+# for split in ["train", "validation", "test"]:
+#     if split in ds:
+#         dset = ds[split]
+#         texts.extend(dset["en"])
+#         texts.extend(dset["vi"])
 
-print(f"Tổng số câu thu được: {len(texts):,}")
+# print(f"Tổng số câu thu được: {len(texts):,}")
 
-# === 3. Xáo trộn ngẫu nhiên
-random.shuffle(texts)
+# # === 3. Xáo trộn ngẫu nhiên
+# random.shuffle(texts)
 
-# === 4. Ghi ra file
-out_file = "merged_shuffled.txt"
-with open(out_file, "w", encoding="utf-8") as f:
-    for line in texts:
-        if line.strip():
-            f.write(line.strip() + "\n")
+# # === 4. Ghi ra file
+# out_file = "merged_shuffled.txt"
+# with open(out_file, "w", encoding="utf-8") as f:
+#     for line in texts:
+#         if line.strip():
+#             f.write(line.strip() + "\n")
 
-print(f"Đã ghi xong: {out_file}")
+# print(f"Đã ghi xong: {out_file}")

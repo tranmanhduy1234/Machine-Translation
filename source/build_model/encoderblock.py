@@ -1,3 +1,6 @@
+"""
+THÀNH PHẦN ENCODER LAYER
+"""
 import torch
 import torch.nn as nn
 from optimizerMultiheadAttention import OptimizedFlashMHA

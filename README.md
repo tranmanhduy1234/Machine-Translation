@@ -17,7 +17,7 @@
 - Normaiization/Standaridization
 - Dataloader xử lý, gom dữ liệu trước khi đưa vào mô hình.
 - Loss Function và Optimizer
-- Training
+- Training code
 Forward Pass / Backward Pass -
 Gradient Descent -
 Epoch / Batch / Iteration -
@@ -26,6 +26,8 @@ Regularization: L1, L2, Dropout -
 Early Stopping
 - Validation & Hyperparameter Tuning
 - Search Methods: Grid Search, Random Search, Bayesian Optimization
+- Có thể trừng phạt trọng số riêng cho từng lớp
+- Train
 - Evaluation
 - Monitoring & Inference
 - Cân nhắc chuyển đổi LayerNorm qua RMSNorm
