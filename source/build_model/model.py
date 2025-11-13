@@ -87,6 +87,13 @@ class Transformer2025(nn.Module):
     def inference_output_projection(self, output_decoder):
         return self.output_projection(output_decoder) # return logits
     
+    # input_shape: [batch_size, seq_len, embed_dim] -> output: [batch_size, seq_len, vocab_size]
+    def decoder_projection(self, input_decoder, encoder_output, tgt_kpmask, src_kpmask):
+        decoder_output = input_decoder
+        for decoder_layer in self.decoder_component:
+            decoder_output = decoder_layer(decoder_output, encoder_output, key_padding_mask_tgt = tgt_kpmask, key_padding_mask_src = src_kpmask)
+        return self.output_projection(decoder_output)
+    
 if __name__ == "__main__": 
     
     inputs_id = torch.randint(0, 32000, (16, 512)).to('cuda')
@@ -102,6 +109,8 @@ if __name__ == "__main__":
     print(f"\n---Decoder output shape {decoder_result.shape}")
     logits_result = model.inference_output_projection(decoder_result)
     print(f"\n---Projection output shape {logits_result.shape}")
+    decoder_projection = model.decoder_projection(embedding_result, context_vector, None, None)
+    print(f"\n---Decoder + Projection output shape {decoder_projection.shape}")
     print()
     
     # from torchviz import make_dot
