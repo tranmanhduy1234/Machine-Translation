@@ -2,6 +2,7 @@ from source.build_model.model import Transformer2025
 import torch
 import torch.nn as nn
 
+# Về cơ bản là sử dụng được, tuy nhiên có thể tối ưu thêm
 class BeamSearchOptim(nn.Module):
     def __init__(self, beam_width, model: Transformer2025, max_len, sos_id, eos_id, device='cuda', alpha=0.6, per_beam_k=None):
         super().__init__()
@@ -77,7 +78,9 @@ if __name__=="__main__":
     inputs_id = torch.randint(0, 32000, (1, 512)).to('cuda')
     model = Transformer2025().to('cuda')
     model.eval()
-
-    beamsearchhead = BeamSearchOptim(beam_width=5, model=model, max_len=150, sos_id=1, eos_id=2, device='cuda', alpha=0.6)
+    import time
+    start = time.time()
+    beamsearchhead = BeamSearchOptim(beam_width=5, model=model, max_len=512, sos_id=1, eos_id=2, device='cuda', alpha=0.6)
     rs = beamsearchhead.translate(inputs_id=inputs_id)
+    print(f"Total time: {time.time() - start}")
     print(rs[0].tolist())

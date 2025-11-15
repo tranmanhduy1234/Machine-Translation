@@ -1,4 +1,5 @@
 # ============================================== thống kê độ dài
+# Phục vụ cho việc tải dữ liệu từ Hugging Face
 from datasets import load_dataset
 import numpy as np
 import matplotlib.pyplot as plt
