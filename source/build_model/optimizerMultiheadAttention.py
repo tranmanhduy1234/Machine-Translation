@@ -4,7 +4,6 @@ LỚP MULTIHEAD ATTENTION FLASH + FUSE
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import time
 
 class OptimizedFlashMHA(nn.Module):
     def __init__(self, embed_dim=512, num_heads=8, dropout=0.1, bias=True):

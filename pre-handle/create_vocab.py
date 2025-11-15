@@ -1,12 +1,11 @@
+# Quá trình tạo vocab
 import sentencepiece as spm 
 import numpy as np
 import pandas as pd
 import time
 from pathlib import Path
 
-# 1. Huấn luyện các tokenizer với vocab_size khác nhau
-# vocab_sizes = [8000, 16000, 32000, 64000]
-vocab_sizes = [32000]
+vocab_sizes = [40000]
 results = []
 
 print("=" * 70)
@@ -30,12 +29,7 @@ for v in vocab_sizes:
     
     train_time = time.time() - start_time
     print(f"  ✓ Training completed in {train_time:.2f}s")
-
-# 2. Đánh giá từng tokenizer
-print("\n" + "=" * 70)
-print("EVALUATING TOKENIZERS")
-print("=" * 70)
-
+    
 # Đọc file một lần
 print("\nLoading text file...")
 with open(r'D:\chuyen_nganh\Machine Translation version2\pre-handle\merged_shuffled.txt', encoding='utf-8') as f:
@@ -99,53 +93,6 @@ for v in vocab_sizes:
     print(f"  Tokenization speed: {tokenization_speed:.1f} sentences/sec")
     print(f"  Encoding time: {encoding_time:.2f}s")
     print(f"  Model size: {model_size:.2f} MB")
-
-# 3. Tạo bảng tổng hợp
-print("\n" + "=" * 70)
-print("SUMMARY TABLE")
-print("=" * 70)
-
-df = pd.DataFrame(results)
-print("\n" + df.to_string(index=False))
-
-# 4. Tính toán so sánh với baseline (vocab_size=16000)
-print("\n" + "=" * 70)
-print("COMPARISON WITH BASELINE (vocab_size=16000)")
-print("=" * 70)
-
-baseline_idx = 0  # vocab_size=16000
-baseline_tokens = results[baseline_idx]['total_tokens']
-baseline_speed = results[baseline_idx]['tokenization_speed']
-
-print(f"\nBaseline: vocab_size=32000 ({baseline_tokens:,} tokens)")
-
-for i, v in enumerate(vocab_sizes):
-    if i == baseline_idx:
-        continue
-    
-    token_change = ((results[i]['total_tokens'] - baseline_tokens) / baseline_tokens) * 100
-    speed_change = ((results[i]['tokenization_speed'] - baseline_speed) / baseline_speed) * 100
-    
-    print(f"\nvocab_size={v}:")
-    print(f"  Token count change: {token_change:+.1f}%")
-    print(f"  Speed change: {speed_change:+.1f}%")
-
-# 5. Đưa ra khuyến nghị
-print("\n" + "=" * 70)
-print("RECOMMENDATIONS")
-print("=" * 70)
-
-best_compression = max(results, key=lambda x: x['compression_ratio'])
-best_speed = max(results, key=lambda x: x['tokenization_speed'])
-best_balanced = results[0] 
-
-print(f"\n✓ Best compression ratio: vocab_size={best_compression['vocab_size']} ({best_compression['compression_ratio']:.4f})")
-print(f"✓ Fastest tokenization: vocab_size={best_speed['vocab_size']} ({best_speed['tokenization_speed']:.1f} sent/sec)")
-print(f"✓ Balanced choice: vocab_size={best_balanced['vocab_size']}")
-
-# 6. Lưu kết quả
-df.to_csv('tokenizer_efficiency_results.csv', index=False)
-print("\n✓ Results saved to 'tokenizer_efficiency_results.csv'")
 
 # -----------------------------------------------------------------------------------------------------------------
 # Tạo file text phục vụ sinh từ điển từ dataset

@@ -4,7 +4,7 @@ THÀNH PHẦN ĐÁNH GIÁ TỐC ĐỘ SO VỚI MODEL MarianMT
 import torch
 import time
 from transformers import MarianMTModel, MarianTokenizer
-from model import Transformer2025  # đổi path nếu cần
+from source.build_model.model import Transformer2025
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

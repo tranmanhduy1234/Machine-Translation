@@ -3,8 +3,8 @@ THÀNH PHẦN ENCODER LAYER
 """
 import torch
 import torch.nn as nn
-from optimizerMultiheadAttention import OptimizedFlashMHA
-from feedForwardNetword import FeedForwardNetwork_standard
+from source.build_model.optimizerMultiheadAttention import OptimizedFlashMHA
+from source.build_model.feedForwardNetword import FeedForwardNetwork_standard
 import time
 
 # input: [batch_size, seq_len, d_model] -> output: [batch_size, seq_len, d_model]

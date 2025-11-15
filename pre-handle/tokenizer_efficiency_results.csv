@@ -1,2 +1,0 @@
-vocab_size,total_tokens,avg_tokens_per_sentence,median_tokens_per_sentence,std_tokens,min_tokens,max_tokens,compression_ratio,tokenization_speed,encoding_time_sec,model_size_mb
-32000,115321288,19.84,15,14.93,1,2791,4.0352,72030.6,80.72,0.75

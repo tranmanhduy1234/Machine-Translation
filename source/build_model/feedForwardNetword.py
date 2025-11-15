@@ -5,6 +5,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+def counter_parameter(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 class FeedForwardNetwork_standard(nn.Module):
     def __init__(self, d_model=512, d_ff=2048, dropout=0.1, activation='gelu'):
         super().__init__()
@@ -189,3 +192,14 @@ class CompressedFFN(nn.Module):
         x = self.up_proj(x)
         x = self.dropout(x)
         return x
+    
+if __name__=="__main__":
+    models = [
+        FeedForwardNetwork_standard(),
+        GLUFFNVariant(),
+        GeGLUFFN(),
+        MoEFFN(),
+        CompressedFFN()
+    ]
+    for model in models:
+        print(f"Couter parameter: {type(model).__name__} <==> {counter_parameter(model):,}")
