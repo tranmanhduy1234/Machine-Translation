@@ -12,7 +12,7 @@ class EncoderBlock(nn.Module):
     def __init__(self, embed_dim, num_heads, ffn_hidden_dim, dropout):
         super().__init__()
         self.mha = OptimizedFlashMHA(embed_dim=embed_dim, num_heads=num_heads, bias=False, dropout=dropout)
-        self.ffn = FeedForwardNetwork_standard(d_model=embed_dim, d_ff=ffn_hidden_dim, activation='swish', dropout=dropout)
+        self.ffn = FeedForwardNetwork_standard(d_model=embed_dim, d_ff=ffn_hidden_dim, activation='gelu', dropout=dropout)
         self.norm1 = nn.LayerNorm(embed_dim)
         self.norm2 = nn.LayerNorm(embed_dim)
         self.dropout = nn.Dropout(dropout)

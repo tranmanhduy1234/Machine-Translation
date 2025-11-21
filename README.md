@@ -7,7 +7,7 @@
 - FlashAttention, gom ma trận tăng tốc độ xử lý
 - Embedding learnable
 - Khởi tạo trọng số ban đầu xavier
-- Thay đổi hàm kích hoạt ở FFN sang switch (SILU) - thay vì RELU
+- Thay đổi hàm kích hoạt ở FFN sang GELU - thay vì RELU
 
 ## 🔧Các vấn đề trong quá trình xây dựng
 - Xây dựng kiến trúc Transformer ✅

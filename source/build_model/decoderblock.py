@@ -12,7 +12,7 @@ class DecoderBlock(nn.Module):
         super().__init__()
         self.self_mha = OptimizedFlashMHA(embed_dim=embed_dim, num_heads=num_heads, bias=False)
         self.cross_mha = OptimizedFlashMHA(embed_dim=embed_dim, num_heads=num_heads, bias=False)
-        self.ffn = FeedForwardNetwork_standard(d_model=embed_dim, d_ff=ffn_hidden_dim, activation='swish')
+        self.ffn = FeedForwardNetwork_standard(d_model=embed_dim, d_ff=ffn_hidden_dim, activation='gelu')
         self.norm1 = nn.LayerNorm(embed_dim)
         self.norm2 = nn.LayerNorm(embed_dim)
         self.norm3 = nn.LayerNorm(embed_dim)

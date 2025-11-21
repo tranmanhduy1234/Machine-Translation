@@ -77,10 +77,12 @@ class BeamSearchOptim(nn.Module):
 if __name__=="__main__":
     inputs_id = torch.randint(0, 32000, (1, 512)).to('cuda')
     model = Transformer2025().to('cuda')
+    print(model.count_parameters())
     model.eval()
-    import time
-    start = time.time()
-    beamsearchhead = BeamSearchOptim(beam_width=5, model=model, max_len=512, sos_id=1, eos_id=2, device='cuda', alpha=0.6)
-    rs = beamsearchhead.translate(inputs_id=inputs_id)
-    print(f"Total time: {time.time() - start}")
-    print(rs[0].tolist())
+    
+    with torch.no_grad():
+        import time
+        start = time.time()
+        beamsearchhead = BeamSearchOptim(beam_width=5, model=model, max_len=512, sos_id=1, eos_id=2, device='cuda', alpha=0.6)
+        rs = beamsearchhead.translate(inputs_id=inputs_id)
+        print(f"Total time: {time.time() - start}")
