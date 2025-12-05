@@ -3,40 +3,55 @@ XÂY DỰNG KIẾN TRÚC
 """
 import torch
 import torch.nn as nn
-from  source.build_model.decoderblock import DecoderBlock
-from  source.build_model.embedding import Embedding
-from  source.build_model.encoderblock import EncoderBlock
-
+from source.build_model.decoderblock import DecoderBlock
+from source.build_model.embedding import Embedding
+from source.build_model.encoderblock import EncoderBlock
+import source.architecture.arversion1 as config_architecture
+ 
 class Transformer2025(nn.Module):
-    def __init__(self, num_layer_enc = 6, num_layer_dec = 6, d_model = 512, 
-                 d_ff = 2048, num_of_heads = 8, dropout_p = 0.3, max_len=512, vocab_size=32000):
+    def __init__(self, num_layer_enc = config_architecture.numlayer_enc, 
+                 num_layer_dec = config_architecture.numlayer_dec, 
+                 d_model = config_architecture.d_model, 
+                 d_ff = config_architecture.d_ff, 
+                 num_of_heads = config_architecture.num_of_heads, 
+                 max_len=config_architecture.max_len, 
+                 vocab_size=config_architecture.vocab_size):
         super().__init__()
         # Các hằng số
         self.d_model = d_model
         self.num_of_heads = num_of_heads
         assert self.d_model % self.num_of_heads == 0
         self.d_ff = d_ff
-        self.dropout_p = dropout_p
         self.vocab_size = vocab_size
         self.max_length = max_len
         
         # các thành phần
         # Lớp embedding learnable
-        self.embedding = Embedding(self.vocab_size, self.d_model, self.max_length, self.dropout_p)
+        self.embedding = Embedding(self.vocab_size, self.d_model, self.max_length, 
+                                   config_architecture.embedding_dropout)
         # Khối encoder
         self.encoder_component = nn.ModuleList([
-            EncoderBlock(embed_dim=self.d_model, num_heads=self.num_of_heads, 
-                                               ffn_hidden_dim=self.d_ff, dropout=self.dropout_p)
-            for _ in range(num_layer_enc)
+            EncoderBlock(embed_dim=self.d_model, 
+                         num_heads=self.num_of_heads,
+                         ffn_hidden_dim=self.d_ff, 
+                         dropout=config_architecture.encoder_dropout[i], 
+                         bias=config_architecture.encoder_bias[i])
+            for i in range(num_layer_enc)
         ])
         # Khối decoder
         self.decoder_component = nn.ModuleList([
-            DecoderBlock(embed_dim=self.d_model, num_heads=self.num_of_heads, 
-                                               ffn_hidden_dim=self.d_ff, dropout=self.dropout_p)
-            for _ in range(num_layer_dec)
+            DecoderBlock(embed_dim=self.d_model, 
+                         num_heads=self.num_of_heads, 
+                         ffn_hidden_dim=self.d_ff, 
+                         dropout=config_architecture.decoder_dropout[i],
+                         bias=config_architecture.decoder_bias[i])
+            for i in range(num_layer_dec)
         ])
-        # Lớp Linear cuối cùng 
-        self.output_projection = nn.Linear(self.d_model, self.vocab_size, bias=True)
+        # Lớp Linear cuối cùng
+        self.output_projection = nn.Linear(self.d_model, self.vocab_size, bias=config_architecture.output_projection_bias)
+        if self.output_projection.bias is not None:
+            nn.init.constant_(self.output_projection.bias.data, 0.)
+            
         self.output_projection.weight = self.embedding.token_embed.weight # Buộc trọng số
         # đặt softmax phía ngoài model
     def forward(self, src, tgt, src_kpmask = None, tgt_kpmask=None):
@@ -131,7 +146,7 @@ if __name__ == "__main__":
     plt.show()
     
     # # Test các thành phần khi phân giải
-    # embedding_result = model.inference_embedding_layer(inputs_id)    
+    # embedding_result = model.inference_embedding_layer(inputs_id)
     # print(f"\n---Output embedding layer shape {embedding_result.shape}")
     # context_vector = model.inference_encoder_layer(embedding_result, None)
     # print(f"\n---Context Vector shape {context_vector.shape}")

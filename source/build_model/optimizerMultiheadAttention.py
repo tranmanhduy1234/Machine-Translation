@@ -12,23 +12,27 @@ class OptimizedFlashMHA(nn.Module):
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads
-        self.dropout_p = dropout
+        self.dropout = dropout
 
         # gom 3 projection Q,K,V chung một ma trận để tối ưu cache
         self.in_proj_weight = nn.Parameter(torch.empty(3 * embed_dim, embed_dim))
         self.in_proj_bias = nn.Parameter(torch.empty(3 * embed_dim)) if bias else None
-        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=True)
+        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self._reset_parameters()
 
     def _reset_parameters(self):
+        # Khởi tạo trọng số cho các tensor
         nn.init.xavier_uniform_(self.in_proj_weight)
         if self.in_proj_bias is not None:
             nn.init.constant_(self.in_proj_bias, 0.)
+        nn.init.xavier_uniform_(self.out_proj.weight)
+        if self.out_proj.bias is not None:
+            nn.init.constant_(self.out_proj.bias, 0.)
 
     def forward(self, query, key, value, key_padding_mask, is_causal=False):
         B, T, C = query.shape
         src_len = key.size(1)
-
+        
         # === In-projection ===
         if query is key and key is value:
             qkv = F.linear(query, self.in_proj_weight, self.in_proj_bias)
@@ -46,7 +50,6 @@ class OptimizedFlashMHA(nn.Module):
 
         # [B, heads, T, head_dim]
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
-        
         # === Chuẩn hoá mask ===
         # key_padding_mask: (B, src_len) → broadcast đúng chiều [B, 1, 1, src_len]
         if key_padding_mask is not None:
@@ -56,7 +59,7 @@ class OptimizedFlashMHA(nn.Module):
         attn_output = F.scaled_dot_product_attention(
             q, k, v,
             attn_mask=key_padding_mask,
-            dropout_p=self.dropout_p if self.training else 0.0,
+            dropout=self.dropout if self.training else 0.0,
             is_causal=is_causal # mask sẽ được sử dụng sau khi tính score
         )
         # === Output projection ===

@@ -8,11 +8,11 @@ from  source.build_model.feedForwardNetword import FeedForwardNetwork_standard
 
 # input: [batch_size, seq_len, d_model] -> output: [batch_size, seq_len, d_model]
 class DecoderBlock(nn.Module):
-    def __init__(self, embed_dim, num_heads, ffn_hidden_dim, dropout):
+    def __init__(self, embed_dim, num_heads, ffn_hidden_dim, dropout, bias):
         super().__init__()
-        self.self_mha = OptimizedFlashMHA(embed_dim=embed_dim, num_heads=num_heads, bias=False)
-        self.cross_mha = OptimizedFlashMHA(embed_dim=embed_dim, num_heads=num_heads, bias=False)
-        self.ffn = FeedForwardNetwork_standard(d_model=embed_dim, d_ff=ffn_hidden_dim, activation='gelu')
+        self.self_mha = OptimizedFlashMHA(embed_dim=embed_dim, num_heads=num_heads, bias=bias, dropout=dropout)
+        self.cross_mha = OptimizedFlashMHA(embed_dim=embed_dim, num_heads=num_heads, bias=bias, dropout=dropout)
+        self.ffn = FeedForwardNetwork_standard(d_model=embed_dim, d_ff=ffn_hidden_dim, activation='gelu', dropout=dropout, bias=bias)
         self.norm1 = nn.LayerNorm(embed_dim)
         self.norm2 = nn.LayerNorm(embed_dim)
         self.norm3 = nn.LayerNorm(embed_dim)

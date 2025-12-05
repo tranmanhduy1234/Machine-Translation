@@ -1,6 +1,3 @@
-"""
-THÀNH PHẦN EMBEDDING BAO GỒM TOKEN EMBED + POSITION EMBED
-"""
 import torch
 import torch.nn as nn
 import math

@@ -9,11 +9,13 @@ def counter_parameter(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 class FeedForwardNetwork_standard(nn.Module):
-    def __init__(self, d_model=512, d_ff=2048, dropout=0.1, activation='gelu'):
+    def __init__(self, d_model=512, d_ff=2048, dropout=0.1, activation='gelu', bias=False):
         super().__init__()
-        self.linear1 = nn.Linear(d_model, d_ff, bias=True)
-        self.linear2 = nn.Linear(d_ff, d_model, bias=True)
+        self.linear1 = nn.Linear(d_model, d_ff, bias=bias)
+        self.linear2 = nn.Linear(d_ff, d_model, bias=bias)
         self.dropout = nn.Dropout(dropout)
+        self.biasLinear1 = bias
+        self.biasLinear2 = bias
         
         if activation == 'relu':
             self.activation = nn.ReLU()
@@ -28,7 +30,11 @@ class FeedForwardNetwork_standard(nn.Module):
     def _reset_parameters(self):
         nn.init.xavier_uniform_(self.linear1.weight)
         nn.init.xavier_uniform_(self.linear2.weight)
-        
+        if self.biasLinear1:
+            nn.init.constant_(self.linear1.bias.data, 0.)
+        if self.biasLinear2:
+            nn.init.constant_(self.linear2.bias.data, 0.)
+            
     def forward(self, x):
         x = self.linear1(x)
         x = self.activation(x)
