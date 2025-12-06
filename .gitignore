@@ -1,6 +1,8 @@
 __pycache__/
+runs/
 *.pyc
 *.pyo
 *.pyd
 .Python
 .vscode/
+summary/

@@ -1,10 +1,10 @@
-numlayer_enc = 6
-numlayer_dec = 6
-d_model  = 512
-d_ff = 2048
+numlayer_enc = 8
+numlayer_dec = 8
+d_model  = 640
+d_ff = 4096
 num_of_heads = 8
-max_len = 512
-vocab_size = 32000
+max_len = 2048
+vocab_size = 40000
 
 embedding_dropout = 0.3
 encoder_dropout = [0. + i * 0 for i in range(numlayer_enc)]
