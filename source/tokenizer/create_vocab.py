@@ -1,7 +1,6 @@
 # Quá trình tạo vocab
 import sentencepiece as spm 
 import numpy as np
-import pandas as pd
 import time
 from pathlib import Path
 
@@ -17,7 +16,7 @@ for v in vocab_sizes:
     start_time = time.time()
     
     spm.SentencePieceTrainer.train(
-        input=r'D:\chuyen_nganh\Machine Translation version2\pre-handle\merged_shuffled.txt',
+        input=r'D:\chuyen_nganh\Machine Translation version2\source\tokenizer\tokenization.txt',
         model_prefix=f'unigram_{v}',
         vocab_size=v,
         model_type='unigram',
@@ -32,7 +31,7 @@ for v in vocab_sizes:
     
 # Đọc file một lần
 print("\nLoading text file...")
-with open(r'D:\chuyen_nganh\Machine Translation version2\pre-handle\merged_shuffled.txt', encoding='utf-8') as f:
+with open(r'D:\chuyen_nganh\Machine Translation version2\source\tokenizer\tokenization.txt', encoding='utf-8') as f:
     sentences = [line.strip() for line in f if line.strip()]
 
 total_chars = sum(len(s) for s in sentences)

@@ -1,3 +1,6 @@
+"""
+    CẦN BẢN CẢI TIẾN CÓ SỬ DỤNG CACHE - FUSED TỐI ƯU TỐC ĐỘ INFERENCE
+"""
 from source.build_model.model import Transformer2025
 import torch
 import torch.nn as nn

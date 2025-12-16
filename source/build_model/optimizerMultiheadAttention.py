@@ -6,13 +6,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class OptimizedFlashMHA(nn.Module):
-    def __init__(self, embed_dim=512, num_heads=8, dropout=0.1, bias=True):
+    def __init__(self, embed_dim=512, num_heads=8, bias=True):
         super().__init__()
         assert embed_dim % num_heads == 0
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads
-        self.dropout = dropout
 
         # gom 3 projection Q,K,V chung một ma trận để tối ưu cache
         self.in_proj_weight = nn.Parameter(torch.empty(3 * embed_dim, embed_dim))
@@ -55,11 +54,10 @@ class OptimizedFlashMHA(nn.Module):
         if key_padding_mask is not None:
             key_padding_mask = key_padding_mask.view(B, 1, 1, src_len)
         # === FlashAttention kernel ===
-        # Hàm này tự scale QKᵀ / √d, softmax, dropout và nhân V trong GPU kernel
+        # Hàm này tự scale QKᵀ / √d, softmax và nhân V trong GPU kernel
         attn_output = F.scaled_dot_product_attention(
             q, k, v,
             attn_mask=key_padding_mask,
-            dropout=self.dropout if self.training else 0.0,
             is_causal=is_causal # mask sẽ được sử dụng sau khi tính score
         )
         # === Output projection ===

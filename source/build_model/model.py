@@ -118,7 +118,7 @@ class Transformer2025(nn.Module):
         return self.output_projection(decoder_output)
     
 if __name__ == "__main__": 
-    inputs_id = torch.randint(0, 32000, (16, 512)).to('cuda')
+    inputs_id = torch.randint(0, 40000, (16, 640)).to('cuda')
     model = Transformer2025().to('cuda')
     import time
     import matplotlib.pyplot as plt
@@ -130,9 +130,9 @@ if __name__ == "__main__":
     times = []
     for _ in range(10): 
         model(inputs_id, inputs_id)
-    batch_sizes = list(range(1, 30))
+    batch_sizes = list(range(1, 5))
     for batch_size in batch_sizes:
-        inputs_id = torch.randint(0, 32000, (batch_size, 512)).to('cuda')
+        inputs_id = torch.randint(0, 40000, (batch_size, 640)).to('cuda')
         start = time.time()
         model(inputs_id, inputs_id)
         end = time.time()
@@ -146,17 +146,17 @@ if __name__ == "__main__":
     plt.show()
     
     # # Test các thành phần khi phân giải
-    # embedding_result = model.inference_embedding_layer(inputs_id)
-    # print(f"\n---Output embedding layer shape {embedding_result.shape}")
-    # context_vector = model.inference_encoder_layer(embedding_result, None)
-    # print(f"\n---Context Vector shape {context_vector.shape}")
-    # decoder_result = model.inference_decoder_layer(embedding_result, context_vector, None, None)
-    # print(f"\n---Decoder output shape {decoder_result.shape}")
-    # logits_result = model.inference_output_projection(decoder_result)
-    # print(f"\n---Projection output shape {logits_result.shape}")
-    # decoder_projection = model.inference_decoder_projection(embedding_result, context_vector, None, None)
-    # print(f"\n---Decoder + Projection output shape {decoder_projection.shape}")
-    # print()
+    embedding_result = model.inference_embedding_layer(inputs_id)
+    print(f"\n---Output embedding layer shape {embedding_result.shape}")
+    context_vector = model.inference_encoder_layer(embedding_result, None)
+    print(f"\n---Context Vector shape {context_vector.shape}")
+    decoder_result = model.inference_decoder_layer(embedding_result, context_vector, None, None)
+    print(f"\n---Decoder output shape {decoder_result.shape}")
+    logits_result = model.inference_output_projection(decoder_result)
+    print(f"\n---Projection output shape {logits_result.shape}")
+    decoder_projection = model.inference_decoder_projection(embedding_result, context_vector, None, None)
+    print(f"\n---Decoder + Projection output shape {decoder_projection.shape}")
+    print()
     
     # from torchviz import make_dot
     # # visualize before backward

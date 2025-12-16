@@ -1,19 +1,30 @@
-import os
-
-import torch
-import time
+"""
+    CHẠY CÁC BẢN ĐÁNH GIÁ MODEL VỀ THAM SỐ, TINH CHỈNH MÔ HÌNH.
+"""
 from source.build_model.model import Transformer2025
 from torch.utils.tensorboard import SummaryWriter
 import datetime
-writer = SummaryWriter(f'source/train_model/summary/{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
+import csv
 
+writer = SummaryWriter(f'source/train_model/summary/{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
 model = Transformer2025()
-model.eval()
-print(f"Tổng lượng tham số mô hình: {model.count_parameters()}")
-exit(0)
-with torch.no_grad():
-    for name, param in model.named_parameters():
-        writer.add_histogram(f'Weights/{name}', param, global_step=0)
-        
-print("Đã ghi log khởi tạo xong. Hãy kiểm tra TensorBoard.")
-writer.close()
+def export_params_to_csv(model, csv_path="model_params3.csv"):
+    rows = []
+    rows.append(["layer_name", "layer_type", "num_params"])
+    for name, module in model.named_modules():
+            # Lấy danh sách ID của các tham số để kiểm tra trùng
+            param_ids = [str(id(p)) for p in module.parameters(recurse=False) if p.requires_grad]
+            params = sum(p.numel() for p in module.parameters(recurse=False) if p.requires_grad)
+            if params > 0:
+                rows.append([
+                    name,
+                    module.__class__.__name__,
+                    params,
+                    " | ".join(param_ids) # <--- Thêm cột này
+                ])
+    with open(csv_path, mode="w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerows(rows)
+    print(f"✅ Saved to {csv_path}")
+# export_params_to_csv(model)
+print(model.count_parameters())

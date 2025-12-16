@@ -1,0 +1,94 @@
+layer_name,layer_type,num_params,
+embedding.token_embed,Embedding,28160000,2.89214E+12
+embedding.pos_embed,Embedding,180224,2.89214E+12
+encoder_component.0.mha,OptimizedFlashMHA,1488960,2892142589296 | 2892142589376
+encoder_component.0.mha.out_proj,Linear,496320,2892142589456 | 2892142589536
+encoder_component.0.ffn.linear1,Linear,1985280,2892142589696 | 2892142589776
+encoder_component.0.ffn.linear2,Linear,1983168,2892142589856 | 2892142589936
+encoder_component.0.norm1,RMSNorm,704,2.89206E+12
+encoder_component.0.norm2,RMSNorm,704,2.89206E+12
+encoder_component.1.mha,OptimizedFlashMHA,1488960,2892142589616 | 2892142590016
+encoder_component.1.mha.out_proj,Linear,496320,2892142590096 | 2892142590176
+encoder_component.1.ffn.linear1,Linear,1985280,2892142590256 | 2892142590336
+encoder_component.1.ffn.linear2,Linear,1983168,2892142590416 | 2892142590496
+encoder_component.1.norm1,RMSNorm,704,2.89214E+12
+encoder_component.1.norm2,RMSNorm,704,2.89214E+12
+encoder_component.2.mha,OptimizedFlashMHA,1488960,2892142590736 | 2892142590816
+encoder_component.2.mha.out_proj,Linear,496320,2892142590896 | 2892142590976
+encoder_component.2.ffn.linear1,Linear,1985280,2892142591056 | 2892142591136
+encoder_component.2.ffn.linear2,Linear,1983168,2892142591216 | 2892142591296
+encoder_component.2.norm1,RMSNorm,704,2.89214E+12
+encoder_component.2.norm2,RMSNorm,704,2.89214E+12
+encoder_component.3.mha,OptimizedFlashMHA,1488960,2892142591536 | 2892142591616
+encoder_component.3.mha.out_proj,Linear,496320,2892142591696 | 2892142591776
+encoder_component.3.ffn.linear1,Linear,1985280,2892142591856 | 2892142591936
+encoder_component.3.ffn.linear2,Linear,1983168,2892142854224 | 2892142854304
+encoder_component.3.norm1,RMSNorm,704,2.89214E+12
+encoder_component.3.norm2,RMSNorm,704,2.89214E+12
+encoder_component.4.mha,OptimizedFlashMHA,1488960,2892142854544 | 2892142854624
+encoder_component.4.mha.out_proj,Linear,496320,2892142854704 | 2892142854784
+encoder_component.4.ffn.linear1,Linear,1985280,2892142854864 | 2892142854944
+encoder_component.4.ffn.linear2,Linear,1983168,2892142855024 | 2892142855104
+encoder_component.4.norm1,RMSNorm,704,2.89214E+12
+encoder_component.4.norm2,RMSNorm,704,2.89214E+12
+encoder_component.5.mha,OptimizedFlashMHA,1488960,2892142855344 | 2892142855424
+encoder_component.5.mha.out_proj,Linear,496320,2892142855504 | 2892142855584
+encoder_component.5.ffn.linear1,Linear,1985280,2892142855664 | 2892142855744
+encoder_component.5.ffn.linear2,Linear,1983168,2892142855824 | 2892142855904
+encoder_component.5.norm1,RMSNorm,704,2.89214E+12
+encoder_component.5.norm2,RMSNorm,704,2.89214E+12
+decoder_component.0.self_mha,OptimizedFlashMHA,1488960,2892142856384 | 2892142856464
+decoder_component.0.self_mha.out_proj,Linear,496320,2892142856544 | 2892142856624
+decoder_component.0.cross_mha,OptimizedFlashMHA,1488960,2892142856704 | 2892142856784
+decoder_component.0.cross_mha.out_proj,Linear,496320,2892142856864 | 2892142856944
+decoder_component.0.ffn.linear1,Linear,1985280,2892142857024 | 2892142857104
+decoder_component.0.ffn.linear2,Linear,1983168,2892142857184 | 2892142857264
+decoder_component.0.norm1,RMSNorm,704,2.89214E+12
+decoder_component.0.norm2,RMSNorm,704,2.89214E+12
+decoder_component.0.norm3,RMSNorm,704,2.89214E+12
+decoder_component.1.self_mha,OptimizedFlashMHA,1488960,2892142857584 | 2892142857664
+decoder_component.1.self_mha.out_proj,Linear,496320,2892142857744 | 2892142857824
+decoder_component.1.cross_mha,OptimizedFlashMHA,1488960,2892142857904 | 2892142857984
+decoder_component.1.cross_mha.out_proj,Linear,496320,2892142858064 | 2892142858144
+decoder_component.1.ffn.linear1,Linear,1985280,2892142858224 | 2892142858304
+decoder_component.1.ffn.linear2,Linear,1983168,2892142858384 | 2892142858464
+decoder_component.1.norm1,RMSNorm,704,2.89214E+12
+decoder_component.1.norm2,RMSNorm,704,2.89214E+12
+decoder_component.1.norm3,RMSNorm,704,2.89214E+12
+decoder_component.2.self_mha,OptimizedFlashMHA,1488960,2892142858784 | 2892142858864
+decoder_component.2.self_mha.out_proj,Linear,496320,2892142858944 | 2892142859024
+decoder_component.2.cross_mha,OptimizedFlashMHA,1488960,2892142859104 | 2892142859184
+decoder_component.2.cross_mha.out_proj,Linear,496320,2892142859264 | 2892142859344
+decoder_component.2.ffn.linear1,Linear,1985280,2892142859424 | 2892142859504
+decoder_component.2.ffn.linear2,Linear,1983168,2892142859584 | 2892142859664
+decoder_component.2.norm1,RMSNorm,704,2.89214E+12
+decoder_component.2.norm2,RMSNorm,704,2.89214E+12
+decoder_component.2.norm3,RMSNorm,704,2.89214E+12
+decoder_component.3.self_mha,OptimizedFlashMHA,1488960,2892142859984 | 2892142860064
+decoder_component.3.self_mha.out_proj,Linear,496320,2892142860144 | 2892142860224
+decoder_component.3.cross_mha,OptimizedFlashMHA,1488960,2892142860304 | 2892142860384
+decoder_component.3.cross_mha.out_proj,Linear,496320,2892142860464 | 2892142860544
+decoder_component.3.ffn.linear1,Linear,1985280,2892142860624 | 2892142860704
+decoder_component.3.ffn.linear2,Linear,1983168,2892142860784 | 2892142860864
+decoder_component.3.norm1,RMSNorm,704,2.89214E+12
+decoder_component.3.norm2,RMSNorm,704,2.89214E+12
+decoder_component.3.norm3,RMSNorm,704,2.89214E+12
+decoder_component.4.self_mha,OptimizedFlashMHA,1488960,2892142861184 | 2892142861264
+decoder_component.4.self_mha.out_proj,Linear,496320,2892142861344 | 2892142861424
+decoder_component.4.cross_mha,OptimizedFlashMHA,1488960,2892142861504 | 2892142861584
+decoder_component.4.cross_mha.out_proj,Linear,496320,2892142861664 | 2892142861744
+decoder_component.4.ffn.linear1,Linear,1985280,2892142861824 | 2892142861904
+decoder_component.4.ffn.linear2,Linear,1983168,2892142861984 | 2892142862064
+decoder_component.4.norm1,RMSNorm,704,2.89214E+12
+decoder_component.4.norm2,RMSNorm,704,2.89214E+12
+decoder_component.4.norm3,RMSNorm,704,2.89214E+12
+decoder_component.5.self_mha,OptimizedFlashMHA,1488960,2892142862384 | 2892142862464
+decoder_component.5.self_mha.out_proj,Linear,496320,2892142862544 | 2892142862624
+decoder_component.5.cross_mha,OptimizedFlashMHA,1488960,2892142862704 | 2892142862784
+decoder_component.5.cross_mha.out_proj,Linear,496320,2892142862864 | 2892142862944
+decoder_component.5.ffn.linear1,Linear,1985280,2892142863024 | 2892142863104
+decoder_component.5.ffn.linear2,Linear,1983168,2892142863184 | 2892142863264
+decoder_component.5.norm1,RMSNorm,704,2.89214E+12
+decoder_component.5.norm2,RMSNorm,704,2.89214E+12
+decoder_component.5.norm3,RMSNorm,704,2.89214E+12
+output_projection,Linear,28200000,2892142588976 | 2892142863664

@@ -8,6 +8,32 @@ from source.train_model import configtrain
 from architecture.arversion1 import d_model
 from torch.amp import autocast, GradScaler
 
+class WarmupLinearDecay:
+    def __init__(self, warmup_steps, total_steps, base_lr=1e-4, max_lr=1e-3):
+        self.warmup_steps = warmup_steps
+        self.total_steps = total_steps
+        self.base_lr = base_lr
+        self.max_lr = max_lr
+        self.decay_steps = total_steps - warmup_steps
+    
+    def get_lr(self, step):
+        if step >= self.total_steps: # Cơ chế bảo vệ đề phòng
+            return 0.0
+        if step < self.warmup_steps:
+            return self.base_lr + (self.max_lr - self.base_lr) * step / self.warmup_steps
+        else:
+            progress = (step - self.warmup_steps) / self.decay_steps
+            return self.max_lr * (1 - progress)
+    def get_lrs(self):
+        return [self.get_lr(step) for step in range(self.total_steps)]
+
+def create_scheduler(optimizer, warmup_steps, total_steps):
+    scheduler_config = WarmupLinearDecay(warmup_steps, total_steps)
+    def lr_lambda(step):
+        lr = scheduler_config.get_lr(step)
+        return lr / scheduler_config.base_lr
+    return LambdaLR(optimizer, lr_lambda)
+
 def get_noam_scheduler_warmup(optimizer, num_warmup_steps):
     def lr_lambda(current_step):
         current_step = max(1, current_step)
@@ -36,20 +62,24 @@ def train_epoch(model: Transformer2025, train_loader, optimizer, scheduler, crit
             output = model() # Nhớ sử dụng teacher force
             loss = criterion(output.reshape(-1, output.shape[-1]), tgt[1:].reshape(-1))
 
-            loss = loss/accumulation_steps
-        scaler.scale(loss).backward()
+        loss = loss/accumulation_steps
+        scaler.scale(loss).backward() # scale loss lên cực lớn đề tránh underflow bởi Float16, tính đạo hàm 
+        # lan truyền tính đạo hàm sẽ được tính dựa vào loss vào các trọng số, lúc này sẽ lưu trữ trong .grad nhưng đã bị scale
         
         if (batch_idx + 1) % accumulation_steps == 0:
             # gradient clipping
-            scaler.unscale_(optimizer)
-            nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+            scaler.unscale_(optimizer) # Thu lại scale
+            # log histogram cho gradient
             
+            nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
             # optimizer step
-            scaler.step(optimizer)
-            scaler.update()
-            optimizer.zero_grad()
-            scheduler.step()
-        
+            scaler.step(optimizer) # => cập nhật trọng số
+            scaler.update() # cập nhật các trọng số scale
+            optimizer.zero_grad(set_to_none=True) # set lại .grad về None
+            scheduler.step() # Cập nhật lại learning rate
+
+            current_lr = optimizer.param_groups[0]["lr"]
+            
         # logging loss của batch
         loss_value = loss.item() * accumulation_steps
         total_loss += loss_value
@@ -107,7 +137,16 @@ def validate(model, val_loader, criterion):
 def train_Transformer2025(model, train_loader, val_loader, 
                           optimizer, criterion, epochs, warmup_steps,
                           save_path, writer, use_amp=True):
-    
+    """
+    Train Transformer2025 model.
+        optimizer = torch.optim.Adam(
+            model.parameters(),
+            lr=configtrain.LEARNING_RATE,
+            betas=configtrain.BETAS,
+            eps=configtrain.EPS,
+            weight_decay=configtrain.WEIGHT_DECAY  # <-- Thêm weight decay ở đây
+        )
+    """
     scaler = GradScaler(enabled=use_amp)
     total_steps = epochs * len(train_loader) // configtrain.ACCUMULATION_STEPS
     
@@ -170,10 +209,9 @@ def train_Transformer2025(model, train_loader, val_loader,
     return model
 
 """
-+ Các thành phần logging sử dụng tensorboard chưa có
 + Phần early stopping cần đặt lại vị trí
 + Xây dựng thành phần đánh giá BLEU khi loging
-+ Đánh giá BLEU
-+ Sử dụng RMS Norm
 + Thiết kế Curriculum training thay thế cho shuffle
++ Dynamic padding
++ collate_fn
 """

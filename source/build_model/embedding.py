@@ -28,7 +28,7 @@ class TUPE(nn.Module):
         # Parameters cho learnable scaling
         self.rel_weight = nn.Parameter(torch.ones(1))
         self.abs_weight = nn.Parameter(torch.ones(1))
-        self.layer_norm = nn.LayerNorm(d_model)
+        self.layer_norm = nn.RMSNorm(d_model)
         
     def forward(self, seq_len: int, device: torch.device = None) -> torch.Tensor:
         if device is None:
@@ -48,7 +48,7 @@ class TUPE(nn.Module):
         return pos_encoding
 
 class ConvSPE(nn.Module):
-    def __init__(self, vocab_size: int = 32000, d_model: int = 512, max_seq_len: int = 512, kernel_size: int = 5):
+    def __init__(self, vocab_size: int = 40000, d_model: int = 640, max_seq_len: int = 2048, kernel_size: int = 5):
         super().__init__()
         self.d_model = d_model
         self.max_seq_len = max_seq_len
@@ -67,7 +67,7 @@ class ConvSPE(nn.Module):
 
         # Relative shift embeddings
         self.shift_embedding = nn.Embedding(2 * kernel_size + 1, d_model)
-        self.layer_norm = nn.LayerNorm(d_model)
+        self.layer_norm = nn.RMSNorm(d_model)
 
     def forward(self, x: torch.Tensor, device=None):
         """
