@@ -6,12 +6,12 @@
 - Pre-norm được sử dụng thay cho post-norm truyền thống
 - FlashAttention, gom ma trận tăng tốc độ xử lý
 - Embedding learnable
-- Khởi tạo trọng số ban đầu xavier
+- Khởi tạo trọng số ban đầu xavier (Không phù hợp với hàm kích hoạt GELU, chỉnh sửa sau)
 - Thay đổi hàm kích hoạt ở FFN sang GELU - thay vì RELU
 
 ## 🔧Các vấn đề trong quá trình xây dựng
-- Xây dựng kiến trúc Transformer ✅
-- Xây dựng head predict sử dụng beemsearch ✅
+- Xây dựng kiến trúc Transformer
+- Xây dựng head predict sử dụng beemsearch
 - Feature Engineering & Preprocessing
 - Data cleaning: remove NaN, handle outliers
 - Normaiization/Standaridization
