@@ -5,10 +5,10 @@ from source.build_model.model import Transformer2025
 from torch.utils.tensorboard import SummaryWriter
 import datetime
 import csv
-
+from source.train_model.util import *
 writer = SummaryWriter(f'source/train_model/summary/{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
 model = Transformer2025()
-def export_params_to_csv(model, csv_path="model_params3.csv"):
+def export_params_to_csv(model, csv_path=r"D:\chuyen_nganh\Machine Translation version2\source\architecture\aversion1.csv"):
     rows = []
     rows.append(["layer_name", "layer_type", "num_params"])
     for name, module in model.named_modules():
@@ -27,4 +27,5 @@ def export_params_to_csv(model, csv_path="model_params3.csv"):
         writer.writerows(rows)
     print(f"✅ Saved to {csv_path}")
 # export_params_to_csv(model)
+logWeightBias_histogram_mean_std(model=model, writer=writer, index=1)
 print(model.count_parameters())

@@ -28,8 +28,8 @@ class FeedForwardNetwork_standard(nn.Module):
         self._reset_parameters()
         
     def _reset_parameters(self):
-        nn.init.xavier_uniform_(self.linear1.weight)
-        nn.init.xavier_uniform_(self.linear2.weight)
+        nn.init.kaiming_normal_(self.linear1.weight)
+        nn.init.kaiming_normal_(self.linear2.weight)
         if self.biasLinear1:
             nn.init.constant_(self.linear1.bias.data, 0.)
         if self.biasLinear2:

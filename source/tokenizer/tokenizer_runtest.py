@@ -1,30 +1,53 @@
 import sentencepiece as spm
+from transformers import LlamaTokenizerFast
+from sentencepiece import sentencepiece_model_pb2 as sp_pb2_model
 
-# Tải mô hình .model của bạn
-sp = spm.SentencePieceProcessor()
-sp.load(r'D:\chuyen_nganh\Machine Translation version2\source\tokenizer\unigram_40000.model') # Thay bằng đường dẫn file của bạn
+model_spm_path = r'D:\chuyen_nganh\Machine Translation version2\source\tokenizer\unigram_40000.model'
 
-# Kiểm tra các ID đặc biệt
-print(f"Token <unk>: ID = {sp.unk_id()}")
-print(f"Token <s> (BOS): ID = {sp.bos_id()}")
-print(f"Token </s> (EOS): ID = {sp.eos_id()}")
-
-# Nếu bạn có định nghĩa token <pad>
-if sp.pad_id() != -1: # Mặc định là -1 nếu không được set
-    print(f"Token <pad>: ID = {sp.pad_id()}")
-else:
-    print("Token <pad> không được định nghĩa riêng biệt.")
-
-# Kiểm tra tổng số từ vựng
-print(f"Tổng số từ vựng (Vocab size): {sp.get_piece_size()}")
-
-print("\n--- Kết quả Tokenization ---")
-s = """
-Mẹ tôi là người mà tôi ngưỡng mộ nhất. Mẹ đã cống hiến nhiều thời gian và sức lực vào việc dạy dỗ tôi và hai anh trai tôi. Mặc dù làm việc vất vả nhưng bà ấy đã luôn dành thời gian để dạy chúng tôi nhiều điều bổ ích mà cần thiết và quan trọng trong cuộc sống sau này của chúng tôi. Hơn nữa, mẹ là một tấm gương cho tôi noi theo. Mẹ luôn cố gắng sống hòa thuận với những người hàng xóm bên cạnh và giúp đỡ mọi người khi họ gặp khó khăn cho nên hầu hết mọi người tôn trọng và yêu quý bà ấy. Tôi ngưỡng mộ và kính trọng mẹ tôi không chỉ bởi vì bà nuôi dưỡng tôi tốt mà mẹ còn bên tôi và đưa ra sự giúp đỡ nếu cần thiết. Ví dụ như khi tôi gập những khó khăn thì mẹ sẽ đưa ra những lời khuyên quý giá giúp tôi giải quyết những vấn đề đó. Mẹ có ảnh hưởng lớn tới tôi và tôi hi vọng rằng tôi sẽ thừa hưởng được một số nét tính cách của mẹ.
-"""
-
-pieces = sp.EncodeAsPieces(s)
-ids = sp.EncodeAsIds(s)
-# print(f"Tokens: {pieces}")
-print((ids))
-print(len(ids))
+class Tokenizer2025:
+    def __init__(self, model_spm_path="", legacy=False):
+        self.model_spm_path = model_spm_path
+        self.legacy = legacy
+        self.tokenizer = LlamaTokenizerFast(vocab_file=self.model_spm_path, legacy=False)
+        self.tokenizer.add_special_tokens({'pad_token': '<pad>'})
+        
+    def print_infor_vocab(self):
+        print(f"Kích thước từ điển: {len(self.tokenizer)}")
+        print(f"UNK token: {self.tokenizer.unk_token} (ID: {self.tokenizer.unk_token_id})")
+        print(f"BOS token: {self.tokenizer.bos_token} (ID: {self.tokenizer.bos_token_id})")
+        print(f"EOS token: {self.tokenizer.eos_token} (ID: {self.tokenizer.eos_token_id})")
+        print(f"PAD token: {self.tokenizer.pad_token} (ID: {self.tokenizer.pad_token_id})")
+        
+    def encode(self, text, max_length):
+        text = "".join([self.tokenizer.bos_token, text, self.tokenizer.eos_token])
+        print(text)
+        encoded = self.tokenizer.encode(
+            text=text,
+            padding='max_length',
+            max_length=max_length,
+            add_special_tokens=False,
+            padding_side='right',
+            truncation=True
+        )
+        return encoded, self.tokenizer.convert_ids_to_tokens(encoded)
+    def decode(self, ids, skip_special_tokens=True):
+        return self.tokenizer.decode(ids, skip_special_tokens=skip_special_tokens)
+    
+    def get_unk_token(self):
+        return self.tokenizer.unk_token_id, self.tokenizer.unk_token
+    def get_bos_token(self):
+        return self.tokenizer.bos_token_id, self.tokenizer.bos_token
+    def get_eos_token(self):
+        return self.tokenizer.eos_token_id, self.tokenizer.eos_token 
+    def get_pad_token(self):
+        return self.tokenizer.pad_token_id, self.tokenizer.pad_token
+            
+if __name__=="__main__":
+    tokenizer = Tokenizer2025(model_spm_path=model_spm_path, legacy=False)
+    tokenizer.print_infor_vocab()
+    text = "Trần Đỗ Mạnh Duy - Ngày mai rồi sẽ khác"
+    encoded, token_pieces = tokenizer.encode(text=text, max_length=20)
+    print(f"Các mảnh token sau encode\n{token_pieces}")
+    print(encoded)
+    print(tokenizer.decode(encoded))
+    print(tokenizer.get_eos_token())

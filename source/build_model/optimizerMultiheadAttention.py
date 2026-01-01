@@ -21,10 +21,10 @@ class OptimizedFlashMHA(nn.Module):
 
     def _reset_parameters(self):
         # Khởi tạo trọng số cho các tensor
-        nn.init.xavier_uniform_(self.in_proj_weight)
+        nn.init.kaiming_normal_(self.in_proj_weight)
         if self.in_proj_bias is not None:
             nn.init.constant_(self.in_proj_bias, 0.)
-        nn.init.xavier_uniform_(self.out_proj.weight)
+        nn.init.kaiming_normal_(self.out_proj.weight)
         if self.out_proj.bias is not None:
             nn.init.constant_(self.out_proj.bias, 0.)
 

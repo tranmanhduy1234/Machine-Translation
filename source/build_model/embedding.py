@@ -97,7 +97,7 @@ class ConvSPE(nn.Module):
         return pos_encoding  # [batch, seq_len, d_model]
 
 if __name__=="__main__":
-    embed_layer = ConvSPE().cuda()
-    x = torch.randint(0, 32000, (16, 512), device='cuda')
+    embed_layer = Embedding(vocab_size=40000, embed_dim=592, max_len=256, dropout=0.0).cuda()
+    x = torch.randint(0, 40000, (16, 256), device='cuda')
     out = embed_layer(x)
-    print(out.shape)  # (16, 512, 512)
+    print(out.shape)

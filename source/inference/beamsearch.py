@@ -35,7 +35,7 @@ class BeamSearchOptim(nn.Module):
             logits = self.model.inference_decoder_projection(input_decoder=beam_seqs_embed, encoder_output=encoder_output, tgt_kpmask=None, src_kpmask=None)  # [beam_width, seq, vocab_size]
             next_token_logits = logits[:, -1, :]  # [Beam width, Vocab_size]
             log_probs = torch.log_softmax(next_token_logits, dim=-1)  # [beam width, vocab size]
-
+            
             # prevent expansion of finished beams: set all tokens -inf except EOS set 0
             if finished.any():
                 log_probs = log_probs.clone()
@@ -44,12 +44,13 @@ class BeamSearchOptim(nn.Module):
 
             _, vocab_size = log_probs.size()
             k = self.per_beam_k or min(vocab_size, self.B * 4)
-
+            
             # per-beam topk for speed
             topk_vals, topk_ids = torch.topk(log_probs, k, dim=-1)  # both [B, k]
+            # topk_vals [beam_width, k]
             # compute candidate scores: [B, k]
             cand_scores = beam_scores.unsqueeze(1) + topk_vals
-
+            
             # flatten candidates: [B*k]
             flat_scores = cand_scores.view(-1)
             topk_flat_scores, topk_flat_indices = torch.topk(flat_scores, self.B)
@@ -75,17 +76,32 @@ class BeamSearchOptim(nn.Module):
         length_penalty = torch.pow((5.0 + float_lengths) / 6.0, self.alpha)
         final_scores = beam_scores / length_penalty
         best_idx = torch.argmax(final_scores)
-        return beam_seqs[best_idx], final_scores[best_idx]
+        return (beam_seqs[best_idx], final_scores[best_idx])
 
 if __name__=="__main__":
-    inputs_id = torch.randint(0, 32000, (1, 512)).to('cuda')
-    model = Transformer2025().to('cuda')
-    print(model.count_parameters())
-    model.eval()
+    import sentencepiece as spm 
+    sp = spm.SentencePieceProcessor()
+    sp.Load(r'D:\chuyen_nganh\Machine Translation version2\source\tokenizer\unigram_40000.model')
     
+    sentence = """
+        Chủ tịch Hồ Chí Minh đã từng bộc bạch lý tưởng cao đẹp của mình khi đất nước rơi vào hoàn cảnh khốn khó rằng: 
+        “Tôi chỉ có một sự ham muốn, ham muốn tột bậc, là làm sao cho nước ta được hoàn toàn độc lập, dân ta được hoàn toàn tự do, 
+        đồng bào ai cũng có cơm ăn áo mặc, ai cũng được học hành.” Ngày hôm nay, khi đất nước không còn phải chịu đựng những “tiếng bom rơi đạn nổ”, 
+        dang đôi cánh vươn mình bay cao trên bầu trời hội nhập, ai sẽ là những người cầm lái, chèo chống để đưa con thuyền Việt Nam
+        vượt qua sóng gió và vươn tới những chân trời mới? Câu trả lời chính là bạn – thế hệ trẻ của hôm nay.
+        Vậy trách nhiệm của thế hệ trẻ trong kỷ nguyên vươn mình là gì?
+    """
+    
+    model = Transformer2025().to('cuda')
+    model.eval()
+    inputs_id = torch.tensor(sp.EncodeAsIds(sentence)).unsqueeze_(0).to("cuda")
+    print(inputs_id.shape)
     with torch.no_grad():
         import time
         start = time.time()
-        beamsearchhead = BeamSearchOptim(beam_width=5, model=model, max_len=512, sos_id=1, eos_id=2, device='cuda', alpha=0.6)
-        rs = beamsearchhead.translate(inputs_id=inputs_id)
+        beamsearchhead = BeamSearchOptim(beam_width=5, model=model, max_len=256, sos_id=1, eos_id=2, device='cuda', alpha=0.6)
+        seq, score = beamsearchhead.translate(inputs_id=inputs_id)
+        print(seq.shape)
+        result = sp.DecodeIds(seq.tolist())
+        print(result)
         print(f"Total time: {time.time() - start}")

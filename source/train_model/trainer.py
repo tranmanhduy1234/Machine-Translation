@@ -5,7 +5,7 @@ from tqdm import tqdm
 from source.build_model.model import Transformer2025
 from torch.optim.lr_scheduler import LambdaLR
 from source.train_model import configtrain 
-from architecture.arversion1 import d_model
+from source.architecture.arversion1 import d_model
 from torch.amp import autocast, GradScaler
 
 class WarmupLinearDecay:
@@ -17,7 +17,7 @@ class WarmupLinearDecay:
         self.decay_steps = total_steps - warmup_steps
     
     def get_lr(self, step):
-        if step >= self.total_steps: # Cơ chế bảo vệ đề phòng
+        if step >= self.total_steps: 
             return 0.0
         if step < self.warmup_steps:
             return self.base_lr + (self.max_lr - self.base_lr) * step / self.warmup_steps
@@ -70,8 +70,8 @@ def train_epoch(model: Transformer2025, train_loader, optimizer, scheduler, crit
             # gradient clipping
             scaler.unscale_(optimizer) # Thu lại scale
             # log histogram cho gradient
-            
-            nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+            if max_grad_norm > 0:
+                nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
             # optimizer step
             scaler.step(optimizer) # => cập nhật trọng số
             scaler.update() # cập nhật các trọng số scale
@@ -211,7 +211,16 @@ def train_Transformer2025(model, train_loader, val_loader,
 """
 + Phần early stopping cần đặt lại vị trí
 + Xây dựng thành phần đánh giá BLEU khi loging
-+ Thiết kế Curriculum training thay thế cho shuffle
-+ Dynamic padding
-+ collate_fn
++ collate_fn - Dynamic padding
 """
+a = WarmupLinearDecay(warmup_steps=15000, total_steps=117000)
+import matplotlib.pyplot as plt
+lrs = a.get_lrs()
+
+plt.figure()
+plt.plot(lrs)
+plt.xlabel("Step")
+plt.ylabel("Learning rate")
+plt.title("Warmup + Linear Decay Scheduler")
+plt.grid(True)
+plt.show()

@@ -157,14 +157,3 @@ if __name__ == "__main__":
     decoder_projection = model.inference_decoder_projection(embedding_result, context_vector, None, None)
     print(f"\n---Decoder + Projection output shape {decoder_projection.shape}")
     print()
-    
-    # from torchviz import make_dot
-    # # visualize before backward
-    # dot = make_dot(loss, params=dict(model.named_parameters()))
-    # dot.render("linear_cuda_graph", format="png")
-
-    # # compute gradients
-    # loss.backward(retain_graph=True)
-
-    # print("Grad X:", x.grad)
-    # print("Graph saved as linear_cuda_graph.png")
