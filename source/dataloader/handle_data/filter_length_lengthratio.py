@@ -184,9 +184,9 @@ if __name__ == "__main__":
     
     # Lọc dữ liệu
     stats = filterLength(
-        filepath=r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD.tsv",
+        filepath=r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\EVBCorpus.tsv",
         sp_model=sp,
-        output_path="filtered_VietAIv2.tsv",
+        output_path="D:\chuyen_nganh\Machine Translation version2\source\dataloader\EVBCorpus_rs.tsv",
         batch_size=1000000,
         min_length=5,    
         max_length=250,      

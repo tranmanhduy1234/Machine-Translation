@@ -20,11 +20,11 @@ def logWeightBias_histogram_mean_std(model, writer, index): # Bản đồ weight
         writer.add_scalar(f"WeightsBias_STD/{name}",  w.std().item(), index)
         writer.add_scalar(f"WeightsBias_RMSNorm/{name}", w.norm().item() / math.sqrt(w.numel()), index)
 
-def logLoss(writer, loss, phase, step):
+def logLoss(writer, loss, phase="Train", step=-1):
     writer.add_scalar(f"Loss/{phase}", float(loss), step)
 
-def logLearningRate(writer, lr, step):
-    writer.add_scalar("Optimizer/LR", lr, step)
+def logSkip(writer, step=-1):
+    writer.add_scalar(f"=Skip", step, step)
      
 def log_health_metrics(model, writer, index):
     for name, param in model.named_parameters():
@@ -37,7 +37,7 @@ def log_health_metrics(model, writer, index):
 
             update_ratio = gnorm / (wnorm + 1e-8)
             writer.add_scalar(f"Health/Update_Ratio/{name}", update_ratio, index)
-      
+    
 def log_gradient_clipping(grad_norm_before, grad_norm_after, writer, index, max_norm):
     writer.add_scalar("GradientClipping/Norm_Before", grad_norm_before, index)
     writer.add_scalar("GradientClipping/Norm_After", grad_norm_after, index)
@@ -49,20 +49,16 @@ def log_gradient_clipping(grad_norm_before, grad_norm_after, writer, index, max_
     was_clipped = 1.0 if grad_norm_before > max_norm else 0.0
     writer.add_scalar("GradientClipping/Was_Clipped", was_clipped, index)
     
-def save_checkpoint(model, optimizer, scheduler, scaler, epoch, 
-                    batch_idx, global_step, loss, filepath=""):
+def logLearningRate(writer, lr, step):
+    writer.add_scalar("Optimizer/LR", lr, step)
+    
+def save_checkpoint(model, optimizer, scheduler, scaler, step, filepath=""):
     checkpoint = {
-        "epoch": epoch,
-        "batch_idx": batch_idx,
         "model_state_dict": model.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
         "scheduler_state_dict": scheduler.state_dict(),
         "scaler_state_dict": scaler.state_dict(),
-        "global_step": global_step,
-        "loss": loss,
-        "torch_rng_state": torch.get_rng_state(),
-        "cuda_rng_state": torch.cuda.get_rng_state_all(),
-        "numpy_rng_state": np.random.get_state()
+        "step": step,
     }
     torch.save(checkpoint, filepath)
     print(f"=> Checkpoint saved at {filepath}")
@@ -70,20 +66,14 @@ def save_checkpoint(model, optimizer, scheduler, scaler, epoch,
 def load_checkpoint(filepath, model: torch.nn.Module, optimizer, scheduler, scaler):
     if not os.path.exists(filepath):
         print("-> No checkpoint found")
-        return (0, 0)
-    
+        return 0
     print(f"-> Loading checkpoint at: {filepath}")
-    checkpoint = torch.load(filepath)
+    checkpoint = torch.load(filepath, map_location='gpu')
     
-    # 1. load weight
     model.load_state_dict(checkpoint["model_state_dict"])
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
     scaler.load_state_dict(checkpoint["scaler_state_dict"])
-    
-    # 2. Restore RNG
-    torch.set_rng_state(checkpoint["torch_rng_state"])
-    torch.cuda.set_rng_state(checkpoint["cuda_rng_state"])
-    np.random.set_state(checkpoint["numpy_rng_state"])
-    
-    return (checkpoint["epoch"], checkpoint["batch_idx"])
+    if int(checkpoint["step"]) > 0:
+        print("Load checkpoint thành công")
+    return checkpoint["step"]

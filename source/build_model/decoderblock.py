@@ -1,7 +1,6 @@
 """
 THÀNH PHẦN DECODER LAYER
 """
-import torch
 import torch.nn as nn
 from source.build_model.optimizerMultiheadAttention import OptimizedFlashMHA
 from  source.build_model.feedForwardNetword import FeedForwardNetwork_standard

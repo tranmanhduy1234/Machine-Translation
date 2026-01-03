@@ -49,18 +49,17 @@ class OptimizedFlashMHA(nn.Module):
 
         # [B, heads, T, head_dim]
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
-        # === Chuẩn hoá mask ===
         # key_padding_mask: (B, src_len) → broadcast đúng chiều [B, 1, 1, src_len]
         if key_padding_mask is not None:
             key_padding_mask = key_padding_mask.view(B, 1, 1, src_len)
+            
         # === FlashAttention kernel ===
-        # Hàm này tự scale QKᵀ / √d, softmax và nhân V trong GPU kernel
         attn_output = F.scaled_dot_product_attention(
             q, k, v,
             attn_mask=key_padding_mask,
-            is_causal=is_causal # mask sẽ được sử dụng sau khi tính score
+            is_causal=is_causal,
+            dropout_p=0.0
         )
-        # === Output projection ===
         attn_output = attn_output.transpose(1, 2).reshape(B, T, C)
         attn_output = self.out_proj(attn_output)
 

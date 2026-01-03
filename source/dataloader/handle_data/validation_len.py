@@ -182,7 +182,7 @@ def main(data_filename, sp_model_path, batch_size=10000, max_plot_length=None):
 # Chạy chương trình
 if __name__ == "__main__":
     # Cấu hình
-    data_filename = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD.tsv"        # File tsv dữ liệu song ngữ
+    data_filename = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\EVBCorpus.tsv"        # File tsv dữ liệu song ngữ
     sp_model_path = r"D:\chuyen_nganh\Machine Translation version2\source\tokenizer\unigram_40000.model"     # File SentencePiece model
     batch_size = 1000000                     # Số câu xử lý mỗi batch (tăng nếu RAM đủ)
     max_plot_length = 250                 # None = tự động (99 percentile), hoặc set số cụ thể

@@ -42,7 +42,7 @@ def clean_tsv(input_path, output_path, expected_columns=2):
 
 # --- CẤU HÌNH ---
 clean_tsv(
-    input_path=r'D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD.tsv', 
-    output_path=r'D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD_RS.tsv', 
+    input_path=r'D:\chuyen_nganh\Machine Translation version2\source\dataloader\EVBCorpus.tsv', 
+    output_path=r'D:\chuyen_nganh\Machine Translation version2\source\dataloader\EVBCorpus_rs.tsv', 
     expected_columns=2  # Thay đổi số này tùy vào file của bạn (thường là 2 hoặc 3)
 )
