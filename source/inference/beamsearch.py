@@ -55,8 +55,12 @@ class BeamSearchOptim(nn.Module):
             flat_scores = cand_scores.view(-1)
             topk_flat_scores, topk_flat_indices = torch.topk(flat_scores, self.B)
 
-            parent_beam_indices = topk_flat_indices // k
-            chosen_token_indices = topk_ids.view(-1)[topk_flat_indices]  # map back to vocab ids
+            # topk_flat_indices are indices into flat_scores [B*k]
+            # flat_scores[i] = cand_scores[i//k, i%k], where i = beam_idx * k + token_pos
+            parent_beam_indices = topk_flat_indices // k  # Which beam (0 to B-1)
+            chosen_token_positions = topk_flat_indices % k  # Which token in that beam's topk (0 to k-1)
+            # Get the actual token IDs: topk_ids[beam_idx, token_pos]
+            chosen_token_indices = topk_ids[parent_beam_indices, chosen_token_positions]
 
             # update beams
             beam_scores = topk_flat_scores
@@ -77,7 +81,7 @@ class BeamSearchOptim(nn.Module):
         final_scores = beam_scores / length_penalty
         best_idx = torch.argmax(final_scores)
         return (beam_seqs[best_idx], final_scores[best_idx])
-
+        
 if __name__=="__main__":
     import sentencepiece as spm 
     sp = spm.SentencePieceProcessor()

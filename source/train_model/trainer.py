@@ -2,18 +2,23 @@ import numpy as np
 import torch
 import torch.nn as nn
 from tqdm import tqdm
-from source.build_model.model import Transformer2025
 from torch.optim.lr_scheduler import LambdaLR
-from source.train_model import configtrain 
 from source.architecture.arversion1 import d_model
 from torch.amp import autocast, GradScaler
+from config import * 
+from source.dataloader.dataloader2025 import TranslationDataloader
+from source.inference.beamsearch import BeamSearchOptim
+from comet import download_model, load_from_checkpoint # type: ignore
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from source.tokenizer.tokenizer2025 import Tokenizer2025
+from source.train_model.util import *
 
 class WarmupLinearDecay:
     def __init__(self, warmup_steps, total_steps, base_lr=1e-4, max_lr=1e-3):
         self.warmup_steps = warmup_steps
         self.total_steps = total_steps
-        self.base_lr = base_lr
-        self.max_lr = max_lr
+        self.base_lr = LEARNING_RATE
+        self.max_lr = MAX_LEARNING_RATE
         self.decay_steps = total_steps - warmup_steps
     
     def get_lr(self, step):
@@ -43,90 +48,88 @@ def get_noam_scheduler_warmup(optimizer, num_warmup_steps):
         return lr_scale * (d_model ** (-0.5))
     return LambdaLR(optimizer, lr_lambda)
 
-def train_epoch(model: Transformer2025, train_loader, optimizer, scheduler, criterion,
+def train_epoch(model: Transformer2025, train_loader, val_loader, optimizer, scheduler, criterion,
                 scaler, epoch, num_epochs, accumulation_steps, max_grad_norm,
-                logging_step, save_step, writer, save_path, smoothing):
+                logging_step, save_step, writer):
     model.train()
-    total_loss = 0.0
     smoothed_loss = 0.0
-    num_batches = 0
-    global_step = epoch * len(train_loader)
-
-    pbar = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", leave=True)
+    total_step = TOTAL_STEP_TRAINING
     
-    for batch_idx, (src, tgt) in enumerate(pbar):
-        src = src.to(configtrain.DEVICES)
-        tgt = tgt.to(configtrain.DEVICES)
+    pbar = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", leave=True, total=total_step)
+    for idx, batchdata in enumerate(pbar):
+        en_ids = batchdata['en_ids'].to(DEVICES)
+        en_mask = ~batchdata['en_mask'].to(DEVICES)
         
-        with autocast(device_type=configtrain.DEVICES.type):
-            output = model() # Nhớ sử dụng teacher force
-            loss = criterion(output.reshape(-1, output.shape[-1]), tgt[1:].reshape(-1))
+        vi_ids_src = batchdata['vi_ids_src'].to(DEVICES)
+        vi_ids_tgt = batchdata['vi_ids_tgt'].to(DEVICES)
+        vi_mask = ~batchdata['vi_mask'].to(DEVICES)
+        
+        with autocast(device_type=DEVICES.type):
+            output = model(en_ids, vi_ids_src, en_mask, vi_mask) 
+            loss = criterion(output.reshape(-1, output.shape[-1]),vi_ids_tgt.reshape(-1))
 
-        loss = loss/accumulation_steps
-        scaler.scale(loss).backward() # scale loss lên cực lớn đề tránh underflow bởi Float16, tính đạo hàm 
-        # lan truyền tính đạo hàm sẽ được tính dựa vào loss vào các trọng số, lúc này sẽ lưu trữ trong .grad nhưng đã bị scale
+        loss = loss / accumulation_steps
+        loss_value = loss.item() * accumulation_steps
+        scaler.scale(loss).backward() 
         
-        if (batch_idx + 1) % accumulation_steps == 0:
-            # gradient clipping
-            scaler.unscale_(optimizer) # Thu lại scale
-            # log histogram cho gradient
+        if (idx + 1) % accumulation_steps == 0 or (idx + 1) == total_step:
+            scaler.unscale_(optimizer)
             if max_grad_norm > 0:
                 nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
-            # optimizer step
-            scaler.step(optimizer) # => cập nhật trọng số
-            scaler.update() # cập nhật các trọng số scale
-            optimizer.zero_grad(set_to_none=True) # set lại .grad về None
-            scheduler.step() # Cập nhật lại learning rate
-
-            current_lr = optimizer.param_groups[0]["lr"]
+                
+            old_scale = scaler.get_scale()
+            scaler.step(optimizer)
+            scaler.update()
             
-        # logging loss của batch
-        loss_value = loss.item() * accumulation_steps
-        total_loss += loss_value
-        num_batches += 1
+            if (idx + 1) % logging_step == 0:
+                logGradient_histogram_mean_std(model=model, writer=writer, index=idx)
+                log_health_metrics(model=model, writer=writer, index=idx)
+                
+            optimizer.zero_grad(set_to_none=True)
+            if old_scale <= scaler.get_scale():
+                scheduler.step()
+            else:
+                logSkip(writer=writer, step=idx)
+            current_lr = optimizer.param_groups[0]['lr']
+            logLearningRate(writer=writer, lr=current_lr, step=idx)
         
-        # smoothing
-        if num_batches == 1:
-            smoothed_loss = loss_value
-        else: 
-            smoothed_loss = smoothing * loss_value + (1 - smoothing) * smoothed_loss
-        
+        if (idx + 1) % logging_step == 0:
+            logLoss(writer=writer,phase="Train" ,loss=loss_value, step=idx)
+            logWeightBias_histogram_mean_std(model=model, writer=writer, index=idx)
+            
+        if (idx + 1) % save_step == 0:
+            save_checkpoint(model=model, 
+                            optimizer=optimizer, 
+                            scheduler=scheduler, 
+                            scaler=scaler, 
+                            step=idx,
+                            filepath=ROOT_FOLDER_SAVE + f"\checkpoint_{idx}.pt")
+        if (idx + 1) % (save_step // 2) == 0:
+            loss_avg_val = validate_step(model=model, val_loader=val_loader, criterion=criterion)
+            logLoss(writer=writer, loss=loss_avg_val, phase="Validation", step=idx)
+            model.train()
+            
+        smoothed_loss = smoothed_loss * 0.9 + loss_value * 0.1 if idx > 0 else loss_value
         pbar.set_postfix({'loss': f"{smoothed_loss:.4f}"})
-        
-        # log tensorboard
-        if (batch_idx + 1) % logging_step == 0:
-            pass # Sử dụng writer tiến hành log thông tin thông số mô hình.
-        
-        if (batch_idx + 1) % save_step == 0:
-            checkpoint = {
-                "epoch": epoch,
-                "batch": batch_idx,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "scheduler_state_dict": scheduler.state_dict(),
-                "scaler_state_dict": scaler.state_dict(),
-                "global_step": global_step + batch_idx
-            }
-            checkpoint_path = f"{save_path}/checkpoint_epoch{epoch}_step{batch_idx}.pt"
-            torch.save(checkpoint, checkpoint_path)
-            print(f"\nCheckpoint saved: {checkpoint_path}")
-    avg_loss = total_loss / num_batches
-    return avg_loss
 
-def validate(model, val_loader, criterion):
+def validate_step(model, val_loader, criterion):
     model.eval()
     total_loss = 0.0
     num_batches = 0
     
     with torch.no_grad():
         pbar = tqdm(val_loader, desc="Validation", leave=False)
-        for src, tgt in pbar:
-            src = src.to(configtrain.DEVICES)
-            tgt = tgt.to(configtrain.DEVICES)
+        for batchdata in pbar:
+            en_ids = batchdata['en_ids'].to(DEVICES)
+            en_mask = ~batchdata['en_mask'].to(DEVICES)
             
-            with autocast(device_type=configtrain.DEVICES.type):
-                output = model()
-                loss =criterion(output.reshape(-1, output.shape[-1]), tgt[1:].reshape(-1))
+            vi_ids_src = batchdata['vi_ids_src'].to(DEVICES)
+            vi_ids_tgt = batchdata['vi_ids_tgt'].to(DEVICES)
+            vi_mask = ~batchdata['vi_mask'].to(DEVICES)
+            
+            with autocast(device_type=DEVICES.type):
+                output = model(en_ids, vi_ids_src, en_mask, vi_mask)
+                loss = criterion(output.reshape(-1, output.shape[-1]), vi_ids_tgt.reshape(-1))
             
             total_loss += loss.item()
             num_batches += 1
@@ -136,91 +139,97 @@ def validate(model, val_loader, criterion):
 
 def train_Transformer2025(model, train_loader, val_loader, 
                           optimizer, criterion, epochs, warmup_steps,
-                          save_path, writer, use_amp=True):
-    """
-    Train Transformer2025 model.
-        optimizer = torch.optim.Adam(
-            model.parameters(),
-            lr=configtrain.LEARNING_RATE,
-            betas=configtrain.BETAS,
-            eps=configtrain.EPS,
-            weight_decay=configtrain.WEIGHT_DECAY  # <-- Thêm weight decay ở đây
-        )
-    """
-    scaler = GradScaler(enabled=use_amp)
-    total_steps = epochs * len(train_loader) // configtrain.ACCUMULATION_STEPS
-    
-    scheduler = get_noam_scheduler_warmup(optimizer, num_warmup_steps=warmup_steps)
-    
-    best_val_loss = float('inf')
-    patience = 0
-    
-    # set seed
-    torch.manual_seed(configtrain.SEED)
-    np.random.seed(configtrain.SEED)
-    
-    print(f"Starting training on {configtrain.DEVICES}")
-    print(f"Total training steps: {total_steps}")
+                          save_path, writer, beamsearchhead, scaler, scheduler):
+    torch.manual_seed(SEED)
+    np.random.seed(SEED)
+    print(f"Starting training on {DEVICES}")
+    print(f"Total training steps: {TOTAL_STEP_TRAINING}")
     print(f"Warmup steps: {warmup_steps}")
-    
     for epoch in range(epochs):
-        train_loss = train_epoch(
-            model=model, 
-            train_loader=train_loader,
+        train_epoch(
+            model = model, 
+            train_loader = train_loader,
+            val_loader=val_loader,
+            optimizer = optimizer,
+            scheduler = scheduler,
+            criterion = criterion,
+            scaler = scaler,
+            epoch = epoch,
+            num_epochs = epochs,
+            accumulation_steps = ACCUMULATION_STEPS,
+            max_grad_norm = MAX_GRAD_NORM,
+            logging_step = LOGGING_STEP,
+            save_step = SAVE_STEP,
+            writer = writer,
+        )
+        save_checkpoint(
+            model=model,
             optimizer=optimizer,
             scheduler=scheduler,
-            criterion=criterion,
             scaler=scaler,
-            epoch=epoch,
-            num_epochs=epochs,
-            accumulation_steps=configtrain.ACCUMULATION_STEPS,
-            max_grad_norm=configtrain.MAX_GRAD_NORM,
-            logging_step=configtrain.LOGGING_STEP,
-            save_step=configtrain.SAVE_STEP,
-            writer=configtrain.writer,
-            save_path = configtrain.SAVE_PATH,
-            smoothing=configtrain.SMOOTHING
+            step=-1,
+            filepath=save_path
         )
-        
-        val_loss = validate(model=model, val_loader=val_loader, criterion=criterion)
-        
-        # log các chỉ số, thông số mất mát của mô hình
-        # có thể là đánh giá BLEU
-        
-        # early stopping <=> đặt ở đây chưa phù hợp
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            patience = 0
-            best_model_path = f"{save_path}/best_model.pt"
-            torch.save({
-                "epoch": epoch,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "scheduler_state_dict": scheduler.state_dict(),
-            }, best_model_path)
-            print(f"Best model saved: {best_model_path}")
-        else:
-            patience += 1
-            if patience >= configtrain.PATIENCE_LIMIT:
-                print(f"Early stopping at epoch {epoch + 1}")
-                break
     writer.close()
     print("Training complete")
     return model
 
-"""
-+ Phần early stopping cần đặt lại vị trí
-+ Xây dựng thành phần đánh giá BLEU khi loging
-+ collate_fn - Dynamic padding
-"""
-a = WarmupLinearDecay(warmup_steps=15000, total_steps=117000)
-import matplotlib.pyplot as plt
-lrs = a.get_lrs()
+def cometEvaluation(datainput_comet):
+    """
+        data = [
+            {
+                "src": "The cat sat on the mat.",
+                "mt": "Con mèo ngồi trên tấm thảm.",
+                "ref": "Con mèo ngồi trên tấm thảm."
+            },
+            {
+                "src": "Artificial Intelligence is changing the world.",
+                "mt": "Trí tuệ nhân tạo đang thay đổi thế giới.",
+                "ref": "Trí tuệ nhân tạo đang thay đổi thế giới."
+            }
+        ]
+    """
+    # Nhớ cho load model từ trước, ko được để lần nào đánh giá là load lần đó, tốn tài nguyên
+    comet_model_path = download_model("Unbabel/wmt22-comet-da")
+    comet_model = load_from_checkpoint(comet_model_path)
+    model_output = comet_model.predict(datainput_comet, batch_size=8, gpus=0)
+    return model_output["system_score"]
 
-plt.figure()
-plt.plot(lrs)
-plt.xlabel("Step")
-plt.ylabel("Learning rate")
-plt.title("Warmup + Linear Decay Scheduler")
-plt.grid(True)
-plt.show()
+class Trainer2025:
+    def __init__(self):
+        self.model = Transformer2025().to(DEVICES)
+        self.tokenizer2025 = Tokenizer2025(model_spm_path=MODEL_SPM_PATH, legacy=False)
+        self.train_dataloader = TranslationDataloader(path_tsv=TSV_TRAINING, tokenizer=self.tokenizer2025)
+        self.validation_dataloader = TranslationDataloader(path_tsv=TSV_VALIDATION, tokenizer=self.tokenizer2025)
+        self.optimizer = torch.optim.AdamW(
+            self.model.parameters(),
+            lr=LEARNING_RATE,
+            betas=BETAS,
+            eps=EPS,
+            weight_decay=WEIGHT_DECAY
+        )
+        self.criterion = torch.nn.CrossEntropyLoss(
+            ignore_index=PADING_TOKEN,
+            label_smoothing=SMOOTHING
+        )
+        self.beamsearchhead = BeamSearchOptim(beam_width=5, model=self.model, max_len=500, sos_id=BOS_TOKEN, eos_id=EOS_TOKEN, device=DEVICES)
+        self.scaler = GradScaler(enabled=True)
+        self.scheduler = create_scheduler(optimizer=self.optimizer, warmup_steps=WARMUP_STEPS, total_steps=TOTAL_STEP_TRAINING) 
+        
+    def start_training(self):
+        model = train_Transformer2025(
+            model=self.model,
+            train_loader=self.train_dataloader.getDataloader(),
+            val_loader=self.validation_dataloader.getDataloader(),
+            optimizer=self.optimizer,
+            criterion=self.criterion,
+            epochs=EPOCHS,
+            warmup_steps=WARMUP_STEPS,
+            save_path=SAVE_PATH,
+            writer=WRITER,
+            beamsearchhead=self.beamsearchhead,
+            scaler=self.scaler,
+            scheduler=self.scheduler
+        )
+trainer2025 = Trainer2025()
+trainer2025.start_training()

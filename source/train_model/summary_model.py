@@ -26,6 +26,5 @@ def export_params_to_csv(model, csv_path=r"D:\chuyen_nganh\Machine Translation v
         writer = csv.writer(f)
         writer.writerows(rows)
     print(f"✅ Saved to {csv_path}")
-# export_params_to_csv(model)
 logWeightBias_histogram_mean_std(model=model, writer=writer, index=1)
 print(model.count_parameters())

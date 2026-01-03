@@ -1,5 +1,5 @@
-numlayer_enc = 6
-numlayer_dec = 6
+numlayer_enc = 1
+numlayer_dec = 1
 d_model = 640
 d_ff = 2560
 num_of_heads = 8
