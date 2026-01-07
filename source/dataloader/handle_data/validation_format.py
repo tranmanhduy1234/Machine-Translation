@@ -49,4 +49,4 @@ def check_tsv_format(file_path):
             print(f"... và {len(error_lines) - 10} lỗi khác.")
 
 # --- SỬ DỤNG ---
-check_tsv_format(r'D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD.tsv') 
+check_tsv_format(r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetEVBCorpus.tsv") 

@@ -114,9 +114,13 @@ class Transformer2025(nn.Module):
     def inference_decoder_projection(self, input_decoder, encoder_output, tgt_kpmask, src_kpmask):
         decoder_output = input_decoder
         for decoder_layer in self.decoder_component:
-            decoder_output = decoder_layer(decoder_output, encoder_output, key_padding_mask_tgt = tgt_kpmask, key_padding_mask_src = src_kpmask)
+            decoder_output = decoder_layer(decoder_output, encoder_output, 
+                                           key_padding_mask_tgt = tgt_kpmask, 
+                                           key_padding_mask_src = src_kpmask)
         return self.output_projection(decoder_output)
     
+    def inference_decoder_projection_with_cache(self, input_decoder, encoder_output, tgt_kpmask, src_kpmask, past_kv=None, use_cache=False):
+        pass
 if __name__ == "__main__": 
     inputs_id = torch.randint(0, 40000, (16, 256)).to('cuda')
     model = Transformer2025().to('cuda')
@@ -136,4 +140,3 @@ if __name__ == "__main__":
     print(f"\n---Projection output shape {logits_result.shape}")
     decoder_projection = model.inference_decoder_projection(embedding_result, context_vector, None, None)
     print(f"\n---Decoder + Projection output shape {decoder_projection.shape}")
-    print()

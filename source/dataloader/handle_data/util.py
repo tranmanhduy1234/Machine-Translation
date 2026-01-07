@@ -604,6 +604,16 @@ def concatTSV():
             with open(path, 'r', encoding='utf-8') as fin:
                 for i, line in enumerate(fin):
                     fout.write(line)
-    
+
+def validate_data():
+    filepath = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetEVBCorpus.tsv"
+    a = []
+    with open(file=filepath, mode="r", encoding='utf-8') as f:
+        for line in f:
+            parts = line.split("\t")
+            a.append(len(parts))
+            if len(parts) != 2:
+                print("Error")
+    print(a.__len__())
 if __name__=="__main__":
-    concatTSV()
+    validate_data()
