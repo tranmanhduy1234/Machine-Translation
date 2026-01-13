@@ -16,8 +16,8 @@ class Tokenizer2025:
         print(f"PAD token: {self.tokenizer.pad_token} (ID: {self.tokenizer.pad_token_id})")
         
     def encode(self, texts: Union[List[str]]):
-        texts = ["".join([self.tokenizer.bos_token, text, self.tokenizer.eos_token]) 
-                 for text in texts
+        texts = ["".join([str(self.tokenizer.bos_token), text, str(self.tokenizer.eos_token)]) 
+                for text in texts
             ]
         encoded = self.tokenizer.batch_encode_plus(
             batch_text_or_text_pairs=texts,
@@ -58,6 +58,5 @@ if __name__ == "__main__":
     print(f"Batch encoding ({len(batch_texts)} texts):")
     print(f"Pieces: {token_pieces[0]}\n")
     print(f"IDs: {encoded[0].tolist()}\n")
-    
     decoded = tokenizer.decode([encoded[0]])
     print(f"Decoded batch: {decoded}")

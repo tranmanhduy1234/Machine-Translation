@@ -16,11 +16,13 @@ class TranslationDataloader:
             streaming=True
         )
         
-    def getDataloader(self):
+    def getDataloader(self, batch_size = -1):
+        if batch_size == -1:
+            batch_size = BATCH_SIZE
         streamed_dataset = self.dataset["train"]
         return DataLoader(
             streamed_dataset, 
-            batch_size=BATCH_SIZE, 
+            batch_size=batch_size, 
             collate_fn=self.collate_fn,
             pin_memory=PIN_MEMORY,
             num_workers=NUM_WORKERS,
@@ -80,7 +82,7 @@ class TranslationDataloader:
         print()
 if __name__=="__main__":
     data = TranslationDataloader(
-        path_tsv=r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\EVBCorpus.tsv",
+        path_tsv=r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD_test.tsv",
         tokenizer=Tokenizer2025(MODEL_SPM_PATH)
     )
     datatrain = data.getDataloader()

@@ -68,7 +68,9 @@ def load_checkpoint(filepath, model: torch.nn.Module, optimizer, scheduler, scal
         print("-> No checkpoint found")
         return 0
     print(f"-> Loading checkpoint at: {filepath}")
-    checkpoint = torch.load(filepath, map_location='gpu')
+    # Fix: map_location should be 'cuda' or 'cpu', not 'gpu'
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    checkpoint = torch.load(filepath, map_location=device)
     
     model.load_state_dict(checkpoint["model_state_dict"])
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
