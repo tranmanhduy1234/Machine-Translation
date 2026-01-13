@@ -6,13 +6,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class OptimizedFlashMHA(nn.Module):
-    def __init__(self, embed_dim=512, num_heads=8, bias=True):
+    def __init__(self, embed_dim=512, num_heads=8, bias=True, dropout_p=0.1):
         super().__init__()
         assert embed_dim % num_heads == 0
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads
-
+        self.dropout_p = dropout_p
+        
         # gom 3 projection Q,K,V chung một ma trận để tối ưu cache
         self.in_proj_weight = nn.Parameter(torch.empty(3 * embed_dim, embed_dim))
         self.in_proj_bias = nn.Parameter(torch.empty(3 * embed_dim)) if bias else None
@@ -21,10 +22,10 @@ class OptimizedFlashMHA(nn.Module):
 
     def _reset_parameters(self):
         # Khởi tạo trọng số cho các tensor
-        nn.init.kaiming_normal_(self.in_proj_weight)
+        nn.init.normal_(self.in_proj_weight, mean=0.0, std=0.02)
         if self.in_proj_bias is not None:
             nn.init.constant_(self.in_proj_bias, 0.)
-        nn.init.kaiming_normal_(self.out_proj.weight)
+        nn.init.normal_(self.out_proj.weight, mean=0.0, std=0.02)
         if self.out_proj.bias is not None:
             nn.init.constant_(self.out_proj.bias, 0.)
 
@@ -48,17 +49,17 @@ class OptimizedFlashMHA(nn.Module):
             v = v.view(B, src_len, self.num_heads, self.head_dim)
 
         # [B, heads, T, head_dim]
-        q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
+        q, k, v = q.transpose(1, 2).contiguous(), k.transpose(1, 2).contiguous(), v.transpose(1, 2).contiguous()
         # key_padding_mask: (B, src_len) → broadcast đúng chiều [B, 1, 1, src_len]
         if key_padding_mask is not None:
             key_padding_mask = key_padding_mask.view(B, 1, 1, src_len)
-            
+
         # === FlashAttention kernel ===
         attn_output = F.scaled_dot_product_attention(
             q, k, v,
             attn_mask=key_padding_mask,
             is_causal=is_causal,
-            dropout_p=0.0
+            dropout_p=self.dropout_p if self.training else 0.0
         )
         attn_output = attn_output.transpose(1, 2).reshape(B, T, C)
         attn_output = self.out_proj(attn_output)

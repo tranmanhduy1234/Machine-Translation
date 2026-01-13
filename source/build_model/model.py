@@ -81,8 +81,8 @@ class Transformer2025(nn.Module):
         return next(self.parameters()).device
     
     # Nhận đầu vào là batch phần tử đã được tokenizer dạng [batch_size, seq_len]
-    def inference_embedding_layer(self, input_embeding):
-        return self.embedding(input_embeding) # => trả ra [batch_size, seq_len, embed_dim]
+    def inference_embedding_layer(self, input_embedding):
+        return self.embedding(input_embedding) # => trả ra [batch_size, seq_len, embed_dim]
     
     # input_shape: [batch_size, seq_len, embed_dim] -> output: [batch_size, seq_len, embed_dim]
     def inference_encoder_layer(self, input_encoder, src_kpmask):
@@ -110,7 +110,7 @@ class Transformer2025(nn.Module):
     def inference_output_projection(self, output_decoder):
         return self.output_projection(output_decoder) # return logits
     
-    # input_shape: [batch_size, seq_len, embed_dim] -> output: [batch_size, seq_len, vocab_size]
+    # input_shape: [batch_size, seq_len_past + 1, embed_dim] -> output: [batch_size, seq_len, vocab_size]
     def inference_decoder_projection(self, input_decoder, encoder_output, tgt_kpmask, src_kpmask):
         decoder_output = input_decoder
         for decoder_layer in self.decoder_component:
