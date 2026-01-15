@@ -87,11 +87,11 @@ def train_Transformer2025(model, train_loader, val_loader,
         pbar = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs}", leave=True, total=total_step)
         for idx, batchdata in enumerate(pbar):
             en_ids = batchdata['en_ids'].to(device)
-            en_mask = ~batchdata['en_mask'].to(device)
+            en_mask = batchdata['en_mask'].to(device)
             
             vi_ids_src = batchdata['vi_ids_src'].to(device)
             vi_ids_tgt = batchdata['vi_ids_tgt'].to(device)
-            vi_mask = ~batchdata['vi_mask'].to(device)
+            vi_mask = batchdata['vi_mask'].to(device)
             
             with autocast(device_type=device.type):
                 output = model(en_ids, vi_ids_src, en_mask, vi_mask) 

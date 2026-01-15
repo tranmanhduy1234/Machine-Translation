@@ -17,19 +17,49 @@ class DecoderBlock(nn.Module):
         self.norm2 = nn.RMSNorm(embed_dim)
         self.norm3 = nn.RMSNorm(embed_dim)
         self.dropout = nn.Dropout(dropout)
-    def forward(self, x, encoder_output, key_padding_mask_tgt, key_padding_mask_src):
+        
+        self.self_attn_cache = None
+        self.cross_attn_cache = None
+        
+    def reset_cache(self):
+        self.self_attn_cache = None
+        self.cross_attn_cache = None
+        
+    def forward(self, x, encoder_output, 
+                key_padding_mask_tgt, 
+                key_padding_mask_src, 
+                is_causal_self=True, 
+                is_causal_cross=False,
+                use_cache=False):
+        current_self_attn_cache = self.self_attn_cache if use_cache else None
+        current_cross_attn_cache = self.cross_attn_cache if use_cache else None
+        
         residual = x
         x = self.norm1(x)
-        attn_out1= self.self_mha(x, x, x, key_padding_mask=key_padding_mask_tgt, is_causal=True)
+        
+        attn_out1, new_self_attn_cache = self.self_mha(x, x, x, 
+                                                        key_padding_mask=key_padding_mask_tgt,
+                                                        is_causal=is_causal_self,
+                                                        use_cache=use_cache,
+                                                        kv_cache=current_self_attn_cache)
         x = residual + self.dropout(attn_out1)
         
         residual = x
         x = self.norm2(x)
-        attn_out2 = self.cross_mha(x, encoder_output, encoder_output, key_padding_mask=key_padding_mask_src, is_causal=False)
+        attn_out2, new_cross_attn_cache= self.cross_mha(x, encoder_output, encoder_output, 
+                                   key_padding_mask=key_padding_mask_src, 
+                                   is_causal=is_causal_cross,
+                                   use_cache=use_cache,
+                                   kv_cache=current_cross_attn_cache)
+        
         x = residual + self.dropout(attn_out2)
         
         residual = x
         x = self.norm3(x)
         ffn_out = self.ffn(x)
         x = residual + self.dropout(ffn_out)
+        
+        if use_cache:
+            self.self_attn_cache = new_self_attn_cache
+            self.cross_attn_cache = new_cross_attn_cache
         return x

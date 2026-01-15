@@ -15,10 +15,10 @@ class EncoderBlock(nn.Module):
         self.norm1 = nn.RMSNorm(embed_dim)
         self.norm2 = nn.RMSNorm(embed_dim)
         self.dropout = nn.Dropout(dropout)
-    def forward(self, x, key_padding_mask):
+    def forward(self, x, key_padding_mask, is_causal=False):
         residual = x
         x = self.norm1(x)
-        mha_out = self.mha(x, x, x, key_padding_mask=key_padding_mask, is_causal=False)
+        mha_out, kv_cache = self.mha(x, x, x, key_padding_mask=key_padding_mask, is_causal=is_causal)
         x = residual + self.dropout(mha_out)
         
         residual = x 

@@ -66,8 +66,8 @@ class TranslationDataloader:
             "en_ids": torch.from_numpy(ens_encoded_ids_padded),
             "vi_ids_src": vis_source,
             "vi_ids_tgt": vis_target,
-            "en_mask": torch.from_numpy(ens_keypaddingmask),
-            "vi_mask": torch.from_numpy(vis_keypaddingmask),
+            "en_mask": ~torch.from_numpy(ens_keypaddingmask),
+            "vi_mask": ~torch.from_numpy(vis_keypaddingmask),
             "en_text": ens,
             "vi_text": vis
         }
@@ -86,10 +86,10 @@ if __name__=="__main__":
         tokenizer=Tokenizer2025(MODEL_SPM_PATH)
     )
     datatrain = data.getDataloader()
-    count = 0
-    for _ in datatrain:
-        count += 1
-    print(count)
+    # count = 0
+    # for _ in datatrain:
+    #     count += 1
+    # print(count)
     for i, batch in enumerate(datatrain):
         print(batch)
         print(f"Batch {i+1}:")

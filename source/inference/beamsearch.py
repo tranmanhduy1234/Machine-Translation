@@ -21,17 +21,19 @@ class BeamSearchOptim(nn.Module):
     def batch_translate(self, batch_inputs_id, model: Transformer2025, source_mask=None):
         batch_size, _ = batch_inputs_id.shape
         # Encoder once
-        encoder_output = model.inference_embed_encoder(inputs_id=batch_inputs_id, src_kpmask=source_mask)
+        encoder_output = model.inference_embed_encoder(inputs_id=batch_inputs_id, src_kpmask=source_mask, is_causal=False)
         # [batch_size, seq_len_src, embed_dim]
         encoder_output = encoder_output.unsqueeze(1).expand(-1, self.B, -1, -1).contiguous()
         # [batch_size, beam_width, seq_len_src, embed_dim]
         encoder_output = encoder_output.reshape(batch_size * self.B, -1, encoder_output.shape[-1])
         # [batch_size * beam_width, seq_len_src, embed_dim]
         
-        source_mask = source_mask.unsqueeze(1).expand(-1, self.B, -1).contiguous()
-        # [batch_size, beam_width, seq_len_src]
-        source_mask = source_mask.reshape(batch_size * self.B, -1)
-        # [batch_size * beam_width, seq_len_src]
+        # Xử lý source_mask nếu không None
+        if source_mask is not None:
+            source_mask = source_mask.unsqueeze(1).expand(-1, self.B, -1).contiguous()
+            # [batch_size, beam_width, seq_len_src]
+            source_mask = source_mask.reshape(batch_size * self.B, -1)
+            # [batch_size * beam_width, seq_len_src]
 
         beam_seqs = torch.full((batch_size * self.B, 1), self.sos_id, dtype=torch.long, device=self.device)
         beam_scores = torch.zeros((batch_size, self.B), device=self.device)
@@ -47,7 +49,9 @@ class BeamSearchOptim(nn.Module):
                 input_decoder=beam_seqs_embed, 
                 encoder_output=encoder_output, 
                 tgt_kpmask=None, 
-                src_kpmask=source_mask
+                src_kpmask=source_mask,
+                is_causal_self=True,   # Causal mask cho self-attention trong decoder
+                is_causal_cross=False  # Không có causal mask cho cross-attention
             )
             # [batch_size * beam_width, seq_len_tgt, vocab_size]
             

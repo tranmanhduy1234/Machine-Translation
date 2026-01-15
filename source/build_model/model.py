@@ -60,14 +60,20 @@ class Transformer2025(nn.Module):
         encoder_output = src_embedding
         # forward encoder
         for encoder_layer in self.encoder_component:
-            encoder_output = encoder_layer(encoder_output, key_padding_mask=src_kpmask)
+            encoder_output = encoder_layer(encoder_output, key_padding_mask=src_kpmask, is_causal=False)
         
         # forward decoder
         tgt_embedding = self.embedding(tgt)
         decoder_output = tgt_embedding
         # forward decoder
         for decoder_layer in self.decoder_component:
-            decoder_output = decoder_layer(decoder_output, encoder_output, key_padding_mask_tgt = tgt_kpmask, key_padding_mask_src = src_kpmask)
+            decoder_output = decoder_layer(decoder_output, encoder_output, 
+                                           key_padding_mask_tgt = tgt_kpmask, 
+                                           key_padding_mask_src = src_kpmask,
+                                           is_causal_self=True,
+                                           is_causal_cross=False,
+                                           use_cache=False
+                                           )
 
         logits = self.output_projection(decoder_output)
         return logits
@@ -85,25 +91,35 @@ class Transformer2025(nn.Module):
         return self.embedding(input_embedding) # => trả ra [batch_size, seq_len, embed_dim]
     
     # input_shape: [batch_size, seq_len, embed_dim] -> output: [batch_size, seq_len, embed_dim]
-    def inference_encoder_layer(self, input_encoder, src_kpmask):
+    def inference_encoder_layer(self, input_encoder, src_kpmask, is_causal):
         encoder_output = input_encoder
         for encoder_layer in self.encoder_component:
-            encoder_output = encoder_layer(encoder_output, key_padding_mask=src_kpmask)
+            encoder_output = encoder_layer(encoder_output, key_padding_mask=src_kpmask, is_causal=is_causal)
         return encoder_output
     
     # input_shape: [batch_size, seq_len] -> output: [batch_size, seq_len, embed_dim]
-    def inference_embed_encoder(self, inputs_id, src_kpmask):
+    def inference_embed_encoder(self, inputs_id, src_kpmask, is_causal):
         input_encoder = self.embedding(inputs_id)
         encoder_output = input_encoder
         for encoder_layer in self.encoder_component:
-            encoder_output = encoder_layer(encoder_output, key_padding_mask=src_kpmask)
+            encoder_output = encoder_layer(encoder_output, key_padding_mask=src_kpmask, is_causal=is_causal)
         return encoder_output
     
     # input_shape: [batch_size, seq_len, embed_dim] -> output: [batch_size, seq_len, embed_dim]
-    def inference_decoder_layer(self, input_decoder, encoder_output, tgt_kpmask, src_kpmask):
+    def inference_decoder_layer(self, input_decoder, 
+                                encoder_output, 
+                                tgt_kpmask, src_kpmask, 
+                                is_causal_self, is_causal_cross):
         decoder_output = input_decoder
         for decoder_layer in self.decoder_component:
-            decoder_output = decoder_layer(decoder_output, encoder_output, key_padding_mask_tgt = tgt_kpmask, key_padding_mask_src = src_kpmask)
+            decoder_output = decoder_layer(decoder_output, 
+                                           encoder_output, 
+                                           key_padding_mask_tgt = tgt_kpmask, 
+                                           key_padding_mask_src = src_kpmask,
+                                           is_causal_self=is_causal_self, 
+                                           is_causal_cross=is_causal_cross,
+                                           use_cache=True
+                                           )
         return decoder_output
     
     # input_shape: [batch_size, seq_len, embed_dim] -> output: [batch_size, seq_len, vocab_size]
@@ -111,19 +127,24 @@ class Transformer2025(nn.Module):
         return self.output_projection(output_decoder) # return logits
     
     # input_shape: [batch_size, seq_len_past + 1, embed_dim] -> output: [batch_size, seq_len, vocab_size]
-    def inference_decoder_projection(self, input_decoder, encoder_output, tgt_kpmask, src_kpmask):
+    def inference_decoder_projection(self, input_decoder, encoder_output, 
+                                     tgt_kpmask, src_kpmask, 
+                                     is_causal_self, is_causal_cross):
         decoder_output = input_decoder
         for decoder_layer in self.decoder_component:
-            decoder_output = decoder_layer(decoder_output, encoder_output, 
+            decoder_output = decoder_layer(decoder_output, 
+                                           encoder_output, 
                                            key_padding_mask_tgt = tgt_kpmask, 
-                                           key_padding_mask_src = src_kpmask)
+                                           key_padding_mask_src = src_kpmask,
+                                           is_causal_self=is_causal_self, 
+                                           is_causal_cross=is_causal_cross)
         return self.output_projection(decoder_output)
     
     def inference_decoder_projection_with_cache(self, input_decoder, encoder_output, tgt_kpmask, src_kpmask, past_kv=None, use_cache=False):
         pass
 if __name__ == "__main__": 
     inputs_id = torch.randint(0, 40000, (16, 256)).to('cuda')
-    model = Transformer2025().to('cuda')
+    model = Transformer2025().to('cuda').half()
     torch.cuda.empty_cache()     # Giải phóng bộ nhớ không còn dùng trong cache
     torch.cuda.ipc_collect()     # Thu gom các vùng nhớ IPC bị rò rỉ (ít người biết nhưng rất hữu ích)
     torch.backends.cudnn.benchmark = True     # Tối ưu kernel cho batch size cố định
@@ -132,11 +153,11 @@ if __name__ == "__main__":
     # # Test các thành phần khi phân giải
     embedding_result = model.inference_embedding_layer(inputs_id)
     print(f"\n---Output embedding layer shape {embedding_result.shape}")
-    context_vector = model.inference_encoder_layer(embedding_result, None)
+    context_vector = model.inference_encoder_layer(embedding_result, None, False)
     print(f"\n---Context Vector shape {context_vector.shape}")
-    decoder_result = model.inference_decoder_layer(embedding_result, context_vector, None, None)
+    decoder_result = model.inference_decoder_layer(embedding_result, context_vector, None, None, False, False)
     print(f"\n---Decoder output shape {decoder_result.shape}")
     logits_result = model.inference_output_projection(decoder_result)
     print(f"\n---Projection output shape {logits_result.shape}")
-    decoder_projection = model.inference_decoder_projection(embedding_result, context_vector, None, None)
+    decoder_projection = model.inference_decoder_projection(embedding_result, context_vector, None, None, False, False)
     print(f"\n---Decoder + Projection output shape {decoder_projection.shape}")
