@@ -29,7 +29,7 @@ def count_lines_and_tokens(file_path):
 
 if __name__ == "__main__":
     lines, tokens, skipped = count_lines_and_tokens(
-        r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetEVBCorpus.tsv"
+        r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD_train.tsv"
     )
     print(f"Số dòng hợp lệ: {lines}")
     print(f"Tổng số token: {tokens}")

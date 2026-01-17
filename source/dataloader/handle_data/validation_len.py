@@ -185,5 +185,5 @@ if __name__ == "__main__":
     data_filename = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetEVBCorpus.tsv"        # File tsv dữ liệu song ngữ
     sp_model_path = r"D:\chuyen_nganh\Machine Translation version2\source\tokenizer\unigram_40000.model"     # File SentencePiece model
     batch_size = 1000000                     # Số câu xử lý mỗi batch (tăng nếu RAM đủ)
-    max_plot_length = 250                 # None = tự động (99 percentile), hoặc set số cụ thể
+    max_plot_length = 1000                 # None = tự động (99 percentile), hoặc set số cụ thể
     main(data_filename, sp_model_path, batch_size, max_plot_length)

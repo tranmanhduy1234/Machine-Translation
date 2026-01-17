@@ -96,8 +96,8 @@ def filter_envi_pairs(input_file, output_file, threshold=0.5):
 # Sử dụng
 if __name__ == "__main__":
     # Thay đổi đường dẫn file của bạn
-    input_file = "D:\chuyen_nganh\Dataset MT\datasetTMD.tsv"  # File TSV đầu vào
-    output_file = "D:\chuyen_nganh\Dataset MT\datasetTMD_fasttext.tsv"  # File TSV đầu ra
+    input_file = "D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetEVBCorpus.tsv"  # File TSV đầu vào
+    output_file = "D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetEVBCorpus_rs.tsv"  # File TSV đầu ra
     
     # Lọc với ngưỡng confidence 0.5
     filter_envi_pairs(input_file, output_file, threshold=0.5)

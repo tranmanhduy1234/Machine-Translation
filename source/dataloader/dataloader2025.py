@@ -9,17 +9,22 @@ class TranslationDataloader:
     def __init__(self, path_tsv, tokenizer: Tokenizer2025):
         self.path_tsv = path_tsv
         self.tokenizer = tokenizer
+        self.token_padding_id = self.tokenizer.get_pad_token()[0]
+        
+        print(f"Load dataset from {self.path_tsv}")
         self.dataset = load_dataset(
             'csv',
             data_files={'train': self.path_tsv},
             sep='\t',
-            streaming=True
+            streaming=False,
+            keep_in_memory=False
         )
         
     def getDataloader(self, batch_size = -1):
         if batch_size == -1:
             batch_size = BATCH_SIZE
         streamed_dataset = self.dataset["train"]
+        
         return DataLoader(
             streamed_dataset, 
             batch_size=batch_size, 
@@ -27,21 +32,24 @@ class TranslationDataloader:
             pin_memory=PIN_MEMORY,
             num_workers=NUM_WORKERS,
             shuffle=SHUFFLE,
-            drop_last=DROPLAST,
-            persistent_workers=PERSISTENT_WORKERS if NUM_WORKERS > 0 else False
+            drop_last=DROP_LAST,
+            persistent_workers=PERSISTENT_WORKERS if NUM_WORKERS > 0 else False,
+            prefetch_factor=PREFETCH_FATOR
         )
     
     def collate_fn(self, batch):
         # batch dạng [{'en': 'Support quickly.', 'vi': 'Hỗ trợ nhanh chóng.'}, {'en': 'Time Consumption', 'vi': 'Sự tiêu thụ thời gian'}...]
         batch_size = len(batch)
+        
         ens = [pair['en'] for pair in batch]
         vis = [pair['vi'] for pair in batch]
+        
         ens_encoded_ids, ens_encoded_pieces = self.tokenizer.encode(texts=ens)
         vis_encoded_ids, vis_encoded_pieces = self.tokenizer.encode(texts=vis)
         
         max_length_src = max(map(len, ens_encoded_ids))
         max_length_tgt = max(map(len, vis_encoded_ids))
-        padding_token_id = self.tokenizer.get_pad_token()[0]
+        padding_token_id = self.token_padding_id
         
         ens_encoded_ids_padded = np.full((batch_size, max_length_src), 
                                          fill_value=padding_token_id, 
@@ -77,33 +85,29 @@ class TranslationDataloader:
         print(f"  - Batch size: {BATCH_SIZE}")
         print(f"  - Num workers: {NUM_WORKERS}")
         print(f"  - Pin memory: {PIN_MEMORY}")
-        print(f"  - Drop last: {DROPLAST}")
+        print(f"  - Drop last: {DROP_LAST}")
         print(f"  - Persistent workers: {PERSISTENT_WORKERS}")
         print()
 if __name__=="__main__":
     data = TranslationDataloader(
-        path_tsv=r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD_test.tsv",
+        path_tsv=r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD_train.tsv",
         tokenizer=Tokenizer2025(MODEL_SPM_PATH)
     )
     datatrain = data.getDataloader()
-    # count = 0
-    # for _ in datatrain:
-    #     count += 1
-    # print(count)
     for i, batch in enumerate(datatrain):
-        print(batch)
-        print(f"Batch {i+1}:")
-        print(f"  en_ids shape: {batch['en_ids'].shape}")
-        print(f"  vi_ids_src shape: {batch['vi_ids_src'].shape}")
-        print(f"  vi_ids_tgt shape: {batch['vi_ids_tgt'].shape}")
-        
-        print(f"  en_mask shape: {batch['en_mask'].shape}")
-        print(f"  vi_mask shape: {batch['vi_mask'].shape}")
-        print()
-        print(f"Batch data:")
-        print(f"  en_ids dtype: {batch['en_ids'].dtype}")
-        print(f"  en_mask dtype: {batch['en_mask'].dtype}")
-        print()
-        print(f"Sample en_text: {batch['en_text'][:2]}")
-        print(f"Sample vi_text: {batch['vi_text'][:2]}")
-        break
+        if (batch['en_ids'].shape[-1] > 500) or (batch['vi_ids_src'].shape[-1] > 500):
+            print(i)
+            print(f"Batch {i+1}:")
+            print(f"  en_ids shape: {batch['en_ids'].shape}")
+            print(f"  vi_ids_src shape: {batch['vi_ids_src'].shape}")
+            print(f"  vi_ids_tgt shape: {batch['vi_ids_tgt'].shape}")
+            
+            print(f"  en_mask shape: {batch['en_mask'].shape}")
+            print(f"  vi_mask shape: {batch['vi_mask'].shape}")
+            print()
+            print(f"Batch data:")
+            print(f"  en_ids dtype: {batch['en_ids'].dtype}")
+            print(f"  en_mask dtype: {batch['en_mask'].dtype}")
+            print()
+            print(f"Sample en_text: {batch['en_text'][:2]}")
+            print(f"Sample vi_text: {batch['vi_text'][:2]}")

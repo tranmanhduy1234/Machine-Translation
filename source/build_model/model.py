@@ -54,6 +54,8 @@ class Transformer2025(nn.Module):
             
         self.output_projection.weight = self.embedding.token_embed.weight # Buộc trọng số
         # đặt softmax phía ngoài model
+        
+    # forward chỉ sử dụng cho training
     def forward(self, src, tgt, src_kpmask = None, tgt_kpmask=None):
         # src, tgt đều có định dạng [batch_size, seq_len]
         src_embedding = self.embedding(src) # => batch_size, seq_len, d_model
@@ -86,6 +88,14 @@ class Transformer2025(nn.Module):
         """Lấy device hiện tại của model"""
         return next(self.parameters()).device
     
+    def reset_cache(self):
+        for decoder_layer in self.decoder_component:
+            decoder_layer.reset_cache()
+    
+    def reorder_all_cache(self, beam_indices):
+        for decoder_layer in self.decoder_component:
+            decoder_layer.reorder_cache(beam_indices)
+    
     # Nhận đầu vào là batch phần tử đã được tokenizer dạng [batch_size, seq_len]
     def inference_embedding_layer(self, input_embedding):
         return self.embedding(input_embedding) # => trả ra [batch_size, seq_len, embed_dim]
@@ -109,7 +119,9 @@ class Transformer2025(nn.Module):
     def inference_decoder_layer(self, input_decoder, 
                                 encoder_output, 
                                 tgt_kpmask, src_kpmask, 
-                                is_causal_self, is_causal_cross):
+                                is_causal_self, is_causal_cross,
+                                use_cache
+                                ):
         decoder_output = input_decoder
         for decoder_layer in self.decoder_component:
             decoder_output = decoder_layer(decoder_output, 
@@ -118,7 +130,7 @@ class Transformer2025(nn.Module):
                                            key_padding_mask_src = src_kpmask,
                                            is_causal_self=is_causal_self, 
                                            is_causal_cross=is_causal_cross,
-                                           use_cache=True
+                                           use_cache=use_cache
                                            )
         return decoder_output
     
@@ -127,9 +139,11 @@ class Transformer2025(nn.Module):
         return self.output_projection(output_decoder) # return logits
     
     # input_shape: [batch_size, seq_len_past + 1, embed_dim] -> output: [batch_size, seq_len, vocab_size]
-    def inference_decoder_projection(self, input_decoder, encoder_output, 
+    def inference_decoder_projection(self, input_decoder, 
+                                     encoder_output, 
                                      tgt_kpmask, src_kpmask, 
-                                     is_causal_self, is_causal_cross):
+                                     is_causal_self, is_causal_cross,
+                                     use_cache):
         decoder_output = input_decoder
         for decoder_layer in self.decoder_component:
             decoder_output = decoder_layer(decoder_output, 
@@ -137,27 +151,28 @@ class Transformer2025(nn.Module):
                                            key_padding_mask_tgt = tgt_kpmask, 
                                            key_padding_mask_src = src_kpmask,
                                            is_causal_self=is_causal_self, 
-                                           is_causal_cross=is_causal_cross)
+                                           is_causal_cross=is_causal_cross,
+                                           use_cache=use_cache)
         return self.output_projection(decoder_output)
     
-    def inference_decoder_projection_with_cache(self, input_decoder, encoder_output, tgt_kpmask, src_kpmask, past_kv=None, use_cache=False):
-        pass
 if __name__ == "__main__": 
     inputs_id = torch.randint(0, 40000, (16, 256)).to('cuda')
-    model = Transformer2025().to('cuda').half()
+    model = Transformer2025().to('cuda')
     torch.cuda.empty_cache()     # Giải phóng bộ nhớ không còn dùng trong cache
     torch.cuda.ipc_collect()     # Thu gom các vùng nhớ IPC bị rò rỉ (ít người biết nhưng rất hữu ích)
     torch.backends.cudnn.benchmark = True     # Tối ưu kernel cho batch size cố định
     torch.backends.cudnn.fastest = True       # Ưu tiên thuật toán nhanh nhất
     
-    # # Test các thành phần khi phân giải
+    # Test các thành phần khi phân giải
     embedding_result = model.inference_embedding_layer(inputs_id)
     print(f"\n---Output embedding layer shape {embedding_result.shape}")
     context_vector = model.inference_encoder_layer(embedding_result, None, False)
     print(f"\n---Context Vector shape {context_vector.shape}")
-    decoder_result = model.inference_decoder_layer(embedding_result, context_vector, None, None, False, False)
+    decoder_result = model.inference_decoder_layer(embedding_result, context_vector, None, None, True, False, True)
     print(f"\n---Decoder output shape {decoder_result.shape}")
     logits_result = model.inference_output_projection(decoder_result)
     print(f"\n---Projection output shape {logits_result.shape}")
-    decoder_projection = model.inference_decoder_projection(embedding_result, context_vector, None, None, False, False)
+    decoder_projection = model.inference_decoder_projection(embedding_result, context_vector, None, None, True, False, True)
     print(f"\n---Decoder + Projection output shape {decoder_projection.shape}")
+    print()
+    model.reset_cache()

@@ -4,7 +4,6 @@ THÀNH PHẦN DECODER LAYER
 import torch.nn as nn
 from source.build_model.optimizerMultiheadAttention import OptimizedFlashMHA
 from  source.build_model.feedForwardNetword import FeedForwardNetwork_standard
-import torch
 
 # input: [batch_size, seq_len, d_model] -> output: [batch_size, seq_len, d_model]
 class DecoderBlock(nn.Module):
@@ -18,6 +17,7 @@ class DecoderBlock(nn.Module):
         self.norm3 = nn.RMSNorm(embed_dim)
         self.dropout = nn.Dropout(dropout)
         
+        # kv_cache [batch_size, num_head, seq_len, head_dim]
         self.self_attn_cache = None
         self.cross_attn_cache = None
         
@@ -25,12 +25,29 @@ class DecoderBlock(nn.Module):
         self.self_attn_cache = None
         self.cross_attn_cache = None
         
+    def reorder_cache(self, beam_indices):
+        if self.self_attn_cache is not None:
+            k, v = self.self_attn_cache
+            k = k.index_select(0, beam_indices)
+            v = v.index_select(0, beam_indices)
+            
+            self.self_attn_cache = (k, v)
+        
+        if self.cross_attn_cache is not None:
+            k_c, v_c = self.cross_attn_cache
+            
+            k_c = k_c.index_select(0, beam_indices)
+            v_c = v_c.index_select(0, beam_indices)
+            
+            self.cross_attn_cache = (k_c, v_c)
+        
     def forward(self, x, encoder_output, 
                 key_padding_mask_tgt, 
                 key_padding_mask_src, 
                 is_causal_self=True, 
                 is_causal_cross=False,
                 use_cache=False):
+
         current_self_attn_cache = self.self_attn_cache if use_cache else None
         current_cross_attn_cache = self.cross_attn_cache if use_cache else None
         
@@ -62,4 +79,5 @@ class DecoderBlock(nn.Module):
         if use_cache:
             self.self_attn_cache = new_self_attn_cache
             self.cross_attn_cache = new_cross_attn_cache
+            
         return x

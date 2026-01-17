@@ -5,7 +5,7 @@ import config
 class Embedding(nn.Module):
     def __init__(self, vocab_size, embed_dim, max_len, dropout):
         super().__init__()
-        self.token_embed = nn.Embedding(vocab_size, embed_dim, padding_idx=config.PADING_TOKEN) 
+        self.token_embed = nn.Embedding(vocab_size, embed_dim, padding_idx=config.PADDING_TOKEN) 
         self.pos_embed = nn.Embedding(max_len, embed_dim)
         self.dropout = nn.Dropout(dropout)
         self.scale = math.sqrt(embed_dim)

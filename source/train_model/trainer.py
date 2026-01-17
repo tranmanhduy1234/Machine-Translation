@@ -15,16 +15,16 @@ from source.build_model.model import Transformer2025
 from source.train_model.util import *
 
 class WarmupLinearDecay:
-    def __init__(self, warmup_steps, total_steps, base_lr=1e-4, max_lr=1e-3):
+    def __init__(self, warmup_steps, total_steps_update, base_lr=1e-4, max_lr=1e-3):
         self.warmup_steps = warmup_steps
-        self.total_steps = total_steps
+        self.total_steps = total_steps_update
         self.base_lr = base_lr
         self.max_lr = max_lr
-        self.decay_steps = total_steps - warmup_steps
+        self.decay_steps = total_steps_update - warmup_steps
     
     def get_lr(self, step):
         if step >= self.total_steps: 
-            return 0.0
+            return self.base_lr
         if step < self.warmup_steps:
             return self.base_lr + (self.max_lr - self.base_lr) * step / self.warmup_steps
         else:
@@ -33,8 +33,8 @@ class WarmupLinearDecay:
     def get_lrs(self):
         return [self.get_lr(step) for step in range(self.total_steps)]
 
-def create_scheduler(optimizer, warmup_steps, total_steps, base_lr, max_lr):
-    scheduler_config = WarmupLinearDecay(warmup_steps, total_steps, base_lr, max_lr)
+def create_scheduler(optimizer, warmup_steps, total_steps_update, base_lr, max_lr):
+    scheduler_config = WarmupLinearDecay(warmup_steps, total_steps_update, base_lr, max_lr)
     def lr_lambda(step):
         lr = scheduler_config.get_lr(step)
         return lr / scheduler_config.base_lr
@@ -49,11 +49,24 @@ def get_noam_scheduler_warmup(optimizer, num_warmup_steps):
         return lr_scale * (d_model ** (-0.5))
     return LambdaLR(optimizer, lr_lambda)
 
+def create_cosine_schedule_with_warmup(optimizer, num_warm_up, num_training_step, num_cycles, min_lr_ratio):
+    def lr_lambda(current_step):
+        if current_step < num_warm_up:
+            return float(current_step) / float(max(1, num_warm_up))
+        
+        progress = float(current_step - num_warm_up) / float(max(1, num_training_step))
+        
+        cosine_val = 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress))
+        
+        return min_lr_ratio + (1.0 - min_lr_ratio) * cosine_val
+    return LambdaLR(optimizer=optimizer, lr_lambda=lr_lambda)
+
 def validate_step(model: Transformer2025, val_loader, criterion, devices):
+    model.eval()
     total_loss = 0.0
     num_batches = 0
     with torch.no_grad():
-        pbar = tqdm(val_loader, desc="Validation", leave=False)
+        pbar = tqdm(val_loader, desc="Validation", leave=True, total=len(val_loader))
         for batchdata in pbar:
             en_ids = batchdata['en_ids'].to(devices)
             en_mask = ~batchdata['en_mask'].to(devices)
@@ -94,12 +107,12 @@ def train_Transformer2025(model, train_loader, val_loader,
             vi_mask = batchdata['vi_mask'].to(device)
             
             with autocast(device_type=device.type):
-                output = model(en_ids, vi_ids_src, en_mask, vi_mask) 
-                loss = criterion(output.reshape(-1, output.shape[-1]),vi_ids_tgt.reshape(-1))
+                output = model(en_ids, vi_ids_src, en_mask, vi_mask) # [Batch size, seq_len_tgt, vocab_size]
+                loss = criterion(output.reshape(-1, output.shape[-1]), vi_ids_tgt.reshape(-1))
 
             loss = loss / accumulation_steps
             loss_value = loss.item() * accumulation_steps
-            scaler.scale(loss).backward() 
+            scaler.scale(loss).backward()
             
             if (idx + 1) % accumulation_steps == 0 or (idx + 1) == total_step:
                 scaler.unscale_(optimizer)
@@ -135,9 +148,16 @@ def train_Transformer2025(model, train_loader, val_loader,
                                 filepath=rootfoldersave + f"\checkpoint_{idx}.pt")
             if (idx + 1) % (save_step // 2) == 0: 
                 model.eval()
-                loss_avg_val = validate_step(model=model, val_loader=val_loader, criterion=criterion)
+                loss_avg_val = validate_step(model=model, val_loader=val_loader, criterion=criterion, devices=device)
                 logLoss(writer=writer, loss=loss_avg_val, phase="Validation", step=idx)
-                cometEvaluation(comet_loader=comet_loader, beamsearchhead=beamsearchhead, tokenizer=tokenizer, comet_model=comet_model, device=device)
+                Evaludation_comet_result = cometEvaluation(comet_loader=comet_loader, 
+                                beamsearchhead=beamsearchhead, 
+                                tokenizer=tokenizer, 
+                                comet_model=comet_model, 
+                                device=device,
+                                criterion=criterion)
+                logLoss(writer=writer, loss=Evaludation_comet_result["avg_loss"], phase="Comet Evaluation", step=idx)
+                logCometEvaluation(writer=writer, step=idx, system_score=Evaludation_comet_result["comet_model_output"][-1])
                 model.train()
                 
             smoothed_loss = smoothed_loss * 0.9 + loss_value * 0.1 if idx > 0 else loss_value
@@ -153,27 +173,19 @@ def train_Transformer2025(model, train_loader, val_loader,
         filepath=save_path
     )
     
-def cometEvaluation(model, comet_loader, beamsearchhead: BeamSearchOptim, tokenizer, comet_model, devices):
+def cometEvaluation(model: Transformer2025, comet_loader, beamsearchhead: BeamSearchOptim, tokenizer: Tokenizer2025, comet_model, devices, criterion):
     datainput_comet = []
-    """
-        datainput_comet = [
-            {
-                "src": "The cat sat on the mat.",
-                "mt": "Con mèo ngồi trên tấm thảm.",
-                "ref": "Con mèo ngồi trên tấm thảm."
-            },
-            {
-                "src": "Artificial Intelligence is changing the world.",
-                "mt": "Trí tuệ nhân tạo đang thay đổi thế giới.",
-                "ref": "Trí tuệ nhân tạo đang thay đổi thế giới."
-            }
-        ]
-    """
-    import random
+    model.eval()
+    total_loss = 0.0
     num_batches = 0
     with torch.no_grad():
-        pbar = tqdm(comet_loader, desc="CometValidation", leave=False)
+        pbar = tqdm(comet_loader, desc="CometValidation/Random Threshold Drop", leave=True, total=len(comet_loader))
         for batchdata in pbar:
+            import random
+            import time
+            rand_n = random.random()
+            if rand_n < THRESHOLD:
+                continue
             en_ids = batchdata['en_ids'].to(devices)
             en_mask = ~batchdata['en_mask'].to(devices)
             
@@ -181,22 +193,45 @@ def cometEvaluation(model, comet_loader, beamsearchhead: BeamSearchOptim, tokeni
             vi_ids_tgt = batchdata['vi_ids_tgt'].to(devices)
             vi_mask = ~batchdata['vi_mask'].to(devices)
             
-            with autocast(device_type=devices.type):
-                output = beamsearchhead.translate(inputs_id=en_ids, model=model, source_mask=en_mask, target_mask=vi_mask)
+            en_text = batchdata["en_text"]
+            vi_text = batchdata["vi_text"]
 
-    # Nhớ cho load model từ trước, ko được để lần nào đánh giá là load lần đó, tốn tài nguyên
+            with autocast(device_type=devices.type):
+                output = model(en_ids, vi_ids_src, en_mask, vi_mask)
+                loss = criterion(output.reshape(-1, output.shape[-1]), vi_ids_tgt.reshape(-1))
+                output_beamsearch = beamsearchhead.batch_translate(batch_inputs_id=en_ids, model=model,
+                                                                   source_mask=en_mask, use_cache=True)[0].tolist()
+                translated = tokenizer.decode(output_beamsearch, skip_special_tokens=True)
+                for index in range(len(translated)):
+                    datainput_comet.append({
+                        "src": en_text[index],
+                        "mt": translated[index],
+                        "ref": vi_text[index]
+                    })
+            total_loss += loss.item()
+            num_batches += 1
+    avg_loss = total_loss / num_batches
+    
     model_output = comet_model.predict(datainput_comet, batch_size=8, gpus=0)
-    return model_output["system_score"]
+    
+    return {
+        "comet_model_output": model_output,
+        "avg_loss": avg_loss
+    }
 
 class Trainer2025:
     def __init__(self):
         self.comet_model_path = download_model(COMET_MODEL_PATH)
         self.comet_model = load_from_checkpoint(self.comet_model_path)
+        
+        self.comet_model.eval()
+        self.comet_model = self.comet_model.to("cuda")
+
         self.model = Transformer2025().to(DEVICES)
         self.tokenizer2025 = Tokenizer2025(model_spm_path=MODEL_SPM_PATH, legacy=False)
-        self.train_dataloader = TranslationDataloader(path_tsv=TSV_TRAINING, tokenizer=self.tokenizer2025)
-        self.validation_dataloader = TranslationDataloader(path_tsv=TSV_VALIDATION, tokenizer=self.tokenizer2025)
-        self.comet_dataloader = TranslationDataloader(path_tsv=TSV_COMET, tokenizer=self.tokenizer2025)
+        self.train_dataloader = TranslationDataloader(path_tsv=TSV_TRAINING, tokenizer=self.tokenizer2025).getDataloader()
+        self.validation_dataloader = TranslationDataloader(path_tsv=TSV_VALIDATION, tokenizer=self.tokenizer2025).getDataloader()
+        self.comet_dataloader = TranslationDataloader(path_tsv=TSV_COMET, tokenizer=self.tokenizer2025).getDataloader()
         
         self.optimizer = torch.optim.AdamW(
             self.model.parameters(),
@@ -206,7 +241,7 @@ class Trainer2025:
             weight_decay=WEIGHT_DECAY
         )
         self.criterion = torch.nn.CrossEntropyLoss(
-            ignore_index=PADING_TOKEN,
+            ignore_index=PADDING_TOKEN,
             label_smoothing=SMOOTHING
         )
         self.beamsearchhead = BeamSearchOptim(beam_width=BEAM_WIDTH, 
@@ -215,29 +250,23 @@ class Trainer2025:
                                               eos_id=EOS_TOKEN, 
                                               device=DEVICES)
         self.scaler = GradScaler(enabled=True)
-        self.scheduler = create_scheduler(optimizer=self.optimizer, 
-                                          warmup_steps=WARMUP_STEPS, 
-                                          total_steps=TOTAL_STEP_TRAINING, 
-                                          base_lr=LEARNING_RATE, max_lr=MAX_LEARNING_RATE) 
+        self.scheduler = create_cosine_schedule_with_warmup(optimizer=self.optimizer,
+                                                            num_warm_up=int((len(self.train_dataloader) // ACCUMULATION_STEPS + 1) * RATIO_WARMUP),
+                                                            num_training_step=len(self.train_dataloader) // ACCUMULATION_STEPS + 1,
+                                                            num_cycles=0.5,
+                                                            min_lr_ratio=0.1)
         
     def start_training(self):
         torch.manual_seed(SEED)
         np.random.seed(SEED)
         print(f"Starting training on {DEVICES}")
-        print(f"Total training steps: {TOTAL_STEP_TRAINING}")
-        print(f"Warmup steps: {WARMUP_STEPS}")
+        print(f"Total training steps: {len(self.train_dataloader)}")
+        print(f"Warmup steps: {int(len(self.train_dataloader) * 0.15)}")
         
-        cometEvaluation(model=self.model,
-                        comet_loader=self.comet_dataloader, 
-                        beamsearchhead=self.beamsearchhead, 
-                        tokenizer=self.tokenizer2025, 
-                        comet_model=self.comet_model, 
-                        devices=DEVICES)
-        exit(0)
         train_Transformer2025(
             model=self.model,
-            train_loader=self.train_dataloader.getDataloader(),
-            val_loader=self.validation_dataloader.getDataloader(),
+            train_loader=self.train_dataloader,
+            val_loader=self.validation_dataloader,
             optimizer=self.optimizer,
             criterion=self.criterion,
             epochs=EPOCHS,
@@ -252,12 +281,14 @@ class Trainer2025:
             logging_step=LOGGING_STEP,
             save_step=SAVE_STEP,
             device=DEVICES,
-            total_step_training=TOTAL_STEP_TRAINING,
+            total_step_training=len(self.train_dataloader),
             rootfoldersave=ROOT_FOLDER_SAVE,
-            comet_loader=self.comet_dataloader.getDataloader(),
+            comet_loader=self.comet_dataloader,
             comet_model=self.comet_model
         )
         WRITER.close()
         print("Training complete")
-trainer2025 = Trainer2025()
-trainer2025.start_training()
+
+if __name__=="__main__":
+    trainer2025 = Trainer2025()
+    trainer2025.start_training()

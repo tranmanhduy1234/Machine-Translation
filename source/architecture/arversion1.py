@@ -3,7 +3,7 @@ numlayer_dec = 6
 d_model = 640
 d_ff = 2560
 num_of_heads = 8
-max_len = 256 
+max_len = 512 
 vocab_size = 40000
 
 embedding_dropout = 0.0

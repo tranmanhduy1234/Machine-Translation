@@ -324,8 +324,8 @@ if __name__ == "__main__":
     processor = EnhancedBitextProcessor(chunk_size=100000)
     
     # Đường dẫn file
-    input_file = r'D:\chuyen_nganh\Dataset MT\dataTrain.tsv'
-    output_file = r'D:\chuyen_nganh\Dataset MT\dataTrain_rs.tsv'
+    input_file = r'D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetEVBCorpus.tsv'
+    output_file = r'D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetEVBCorpus_rs.tsv'
     # Xử lý
     processor.process_and_save(input_file, output_file)
     

@@ -24,8 +24,11 @@ def logLoss(writer, loss, phase="Train", step=-1):
     writer.add_scalar(f"Loss/{phase}", float(loss), step)
 
 def logSkip(writer, step=-1):
-    writer.add_scalar(f"=Skip", step, step)
+    writer.add_scalar(f"Skip Batch", step, step)
      
+def logCometEvaluation(writer, step=-1, system_score=0):
+    writer.add_scalar(f"Comet system score", system_score, step)
+    
 def log_health_metrics(model, writer, index):
     for name, param in model.named_parameters():
         if param.grad is not None:
