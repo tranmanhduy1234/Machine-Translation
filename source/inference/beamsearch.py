@@ -18,7 +18,6 @@ class BeamSearchOptim(nn.Module):
         self.alpha = alpha
         self.per_beam_k = per_beam_k
 
-    @torch.no_grad()
     def batch_translate(self, batch_inputs_id, model: Transformer2025, source_mask=None, use_cache=False):
         batch_size, _ = batch_inputs_id.shape
         encoder_output = model.inference_embed_encoder(inputs_id=batch_inputs_id, src_kpmask=source_mask, is_causal=False)
@@ -165,7 +164,7 @@ if __name__=="__main__":
     tokenizer2025 = Tokenizer2025(model_spm_path=r"D:\chuyen_nganh\Machine Translation version2\source\tokenizer\unigram_40000.model", legacy=False)
     print(tokenizer2025.decode(rs, skip_special_tokens=True))
 
-# Cấu trúc kv_cache các layer 
+# Cấu trúc kv_cache các layer
 """
 Trong decoder block
 def reorder_cache(self, beam_indices):

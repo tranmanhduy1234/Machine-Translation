@@ -10,3 +10,4 @@ source/tokenizer/tokenization.txt
 datasetTMD.tsv
 *.tsv
 *.bin
+*.pt

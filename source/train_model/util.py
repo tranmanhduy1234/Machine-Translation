@@ -3,6 +3,8 @@ import torch
 import os
 import numpy as np
 from source.build_model.model import Transformer2025
+import config 
+
 def logGradient_histogram_mean_std(model: Transformer2025, writer, index): # Log gradient truyền qua từng lớp. - dạng histogram
     for name, param in model.named_parameters():
         if param.grad is not None:
@@ -25,7 +27,7 @@ def logLoss(writer, loss, phase="Train", step=-1):
 
 def logSkip(writer, step=-1):
     writer.add_scalar(f"Skip Batch", step, step)
-     
+    
 def logCometEvaluation(writer, step=-1, system_score=0):
     writer.add_scalar(f"Comet system score", system_score, step)
     
@@ -55,13 +57,14 @@ def log_gradient_clipping(grad_norm_before, grad_norm_after, writer, index, max_
 def logLearningRate(writer, lr, step):
     writer.add_scalar("Optimizer/LR", lr, step)
     
-def save_checkpoint(model, optimizer, scheduler, scaler, step, filepath=""):
-    checkpoint = {
+def save_checkpoint(model, optimizer, scheduler, scaler, step, epoch, filepath=""):
+    checkpoint = { 
         "model_state_dict": model.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
         "scheduler_state_dict": scheduler.state_dict(),
         "scaler_state_dict": scaler.state_dict(),
         "step": step,
+        "epoch": epoch
     }
     torch.save(checkpoint, filepath)
     print(f"=> Checkpoint saved at {filepath}")
@@ -71,9 +74,7 @@ def load_checkpoint(filepath, model: torch.nn.Module, optimizer, scheduler, scal
         print("-> No checkpoint found")
         return 0
     print(f"-> Loading checkpoint at: {filepath}")
-    # Fix: map_location should be 'cuda' or 'cpu', not 'gpu'
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    checkpoint = torch.load(filepath, map_location=device)
+    checkpoint = torch.load(filepath, map_location=config.DEVICES)
     
     model.load_state_dict(checkpoint["model_state_dict"])
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
@@ -81,4 +82,16 @@ def load_checkpoint(filepath, model: torch.nn.Module, optimizer, scheduler, scal
     scaler.load_state_dict(checkpoint["scaler_state_dict"])
     if int(checkpoint["step"]) > 0:
         print("Load checkpoint thành công")
-    return checkpoint["step"]
+    return (checkpoint["step"], checkpoint["epoch"])
+
+def load_checkpoint_onlymodel(filepath, model: torch.nn.Module):
+    if not os.path.exists(filepath):
+        print("-> No checkpoint found")
+        return 0
+    print(f"-> Loading checkpoint at: {filepath}")
+    checkpoint = torch.load(filepath, map_location=config.DEVICES)
+    
+    model.load_state_dict(checkpoint["model_state_dict"])
+    if int(checkpoint["step"]) > 0:
+        print(f"Load checkpoint tại {filepath} thành công")
+    return (checkpoint["step"], checkpoint["epoch"])

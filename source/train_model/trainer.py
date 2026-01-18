@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*") # đang sử dụng bản 80
 import numpy as np
 import torch
 import torch.nn as nn
@@ -9,10 +11,10 @@ from config import *
 from source.dataloader.dataloader2025 import TranslationDataloader
 from source.inference.beamsearch import BeamSearchOptim
 from comet import download_model, load_from_checkpoint # type: ignore
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from source.tokenizer.tokenizer2025 import Tokenizer2025
 from source.build_model.model import Transformer2025
 from source.train_model.util import *
+import random
 
 class WarmupLinearDecay:
     def __init__(self, warmup_steps, total_steps_update, base_lr=1e-4, max_lr=1e-3):
@@ -53,11 +55,9 @@ def create_cosine_schedule_with_warmup(optimizer, num_warm_up, num_training_step
     def lr_lambda(current_step):
         if current_step < num_warm_up:
             return float(current_step) / float(max(1, num_warm_up))
-        
         progress = float(current_step - num_warm_up) / float(max(1, num_training_step))
-        
+        progress = min(progress, 1.0)
         cosine_val = 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress))
-        
         return min_lr_ratio + (1.0 - min_lr_ratio) * cosine_val
     return LambdaLR(optimizer=optimizer, lr_lambda=lr_lambda)
 
@@ -69,11 +69,11 @@ def validate_step(model: Transformer2025, val_loader, criterion, devices):
         pbar = tqdm(val_loader, desc="Validation", leave=True, total=len(val_loader))
         for batchdata in pbar:
             en_ids = batchdata['en_ids'].to(devices)
-            en_mask = ~batchdata['en_mask'].to(devices)
+            en_mask = batchdata['en_mask'].to(devices)
             
             vi_ids_src = batchdata['vi_ids_src'].to(devices)
             vi_ids_tgt = batchdata['vi_ids_tgt'].to(devices)
-            vi_mask = ~batchdata['vi_mask'].to(devices)
+            vi_mask = batchdata['vi_mask'].to(devices)
             
             with autocast(device_type=devices.type):
                 output = model(en_ids, vi_ids_src, en_mask, vi_mask)
@@ -84,21 +84,28 @@ def validate_step(model: Transformer2025, val_loader, criterion, devices):
     avg_loss = total_loss / num_batches
     return avg_loss
 
-def train_Transformer2025(model, train_loader, val_loader, 
+def train_Transformer2025(model, train_loader, val_loader, test_loader,
                           optimizer, criterion, epochs, 
                           writer, comet_loader, comet_model, 
                           beamsearchhead, scaler, scheduler, 
                           tokenizer, accumulation_steps, max_grad_norm,
                           logging_step, save_step, device,
-                          total_step_training, rootfoldersave, save_path
+                          total_step_training, rootfoldersave, save_path,
+                          last_epoch, last_step
                           ):
     model.train()
     smoothed_loss = 0.0
     total_step = total_step_training
     
     for epoch in range(epochs):
+        if epoch < last_epoch:
+            continue
+        
         pbar = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs}", leave=True, total=total_step)
         for idx, batchdata in enumerate(pbar):
+            if idx <= last_step and epoch == last_epoch:
+                pbar.update(1)
+                continue
             en_ids = batchdata['en_ids'].to(device)
             en_mask = batchdata['en_mask'].to(device)
             
@@ -133,7 +140,8 @@ def train_Transformer2025(model, train_loader, val_loader,
                 else:
                     logSkip(writer=writer, step=idx)
                 current_lr = optimizer.param_groups[0]['lr']
-                logLearningRate(writer=writer, lr=current_lr, step=idx)
+                if (idx + 1) % logging_step == 0:
+                    logLearningRate(writer=writer, lr=current_lr, step=idx)
             
             if (idx + 1) % logging_step == 0:
                 logLoss(writer=writer,phase="Train" ,loss=loss_value, step=idx)
@@ -145,12 +153,15 @@ def train_Transformer2025(model, train_loader, val_loader,
                                 scheduler=scheduler, 
                                 scaler=scaler, 
                                 step=idx,
+                                epoch=epoch,
                                 filepath=rootfoldersave + f"\checkpoint_{idx}.pt")
-            if (idx + 1) % (save_step // 2) == 0: 
+            if (idx + 1) % (save_step // 2) == 0:
                 model.eval()
                 loss_avg_val = validate_step(model=model, val_loader=val_loader, criterion=criterion, devices=device)
                 logLoss(writer=writer, loss=loss_avg_val, phase="Validation", step=idx)
-                Evaludation_comet_result = cometEvaluation(comet_loader=comet_loader, 
+                Evaludation_comet_result = cometEvaluation(
+                                model=model,
+                                comet_loader=comet_loader, 
                                 beamsearchhead=beamsearchhead, 
                                 tokenizer=tokenizer, 
                                 comet_model=comet_model, 
@@ -170,8 +181,22 @@ def train_Transformer2025(model, train_loader, val_loader,
         scheduler=scheduler,
         scaler=scaler,
         step=-1,
-        filepath=save_path
+        epoch=-1,
+        filepath=save_path,
     )
+    print("Starting testing...")
+    loss_avg_test = validate_step(model=model, val_loader=test_loader, criterion=criterion, devices=device)
+    Evaludation_comet_result = cometEvaluation(model=model, 
+                    comet_loader=test_loader, 
+                    beamsearchhead=beamsearchhead, 
+                    tokenizer=tokenizer, 
+                    comet_model=comet_model, 
+                    devices=device, 
+                    criterion=criterion)
+    print()
+    print(f"Loss/Test: {loss_avg_test}")
+    print(f"System score: {Evaludation_comet_result['comet_model_output'][-1]}")
+    print("ENDING........................")
     
 def cometEvaluation(model: Transformer2025, comet_loader, beamsearchhead: BeamSearchOptim, tokenizer: Tokenizer2025, comet_model, devices, criterion):
     datainput_comet = []
@@ -181,17 +206,15 @@ def cometEvaluation(model: Transformer2025, comet_loader, beamsearchhead: BeamSe
     with torch.no_grad():
         pbar = tqdm(comet_loader, desc="CometValidation/Random Threshold Drop", leave=True, total=len(comet_loader))
         for batchdata in pbar:
-            import random
-            import time
             rand_n = random.random()
             if rand_n < THRESHOLD:
                 continue
             en_ids = batchdata['en_ids'].to(devices)
-            en_mask = ~batchdata['en_mask'].to(devices)
+            en_mask = batchdata['en_mask'].to(devices)
             
             vi_ids_src = batchdata['vi_ids_src'].to(devices)
             vi_ids_tgt = batchdata['vi_ids_tgt'].to(devices)
-            vi_mask = ~batchdata['vi_mask'].to(devices)
+            vi_mask = batchdata['vi_mask'].to(devices)
             
             en_text = batchdata["en_text"]
             vi_text = batchdata["vi_text"]
@@ -223,15 +246,15 @@ class Trainer2025:
     def __init__(self):
         self.comet_model_path = download_model(COMET_MODEL_PATH)
         self.comet_model = load_from_checkpoint(self.comet_model_path)
-        
         self.comet_model.eval()
-        self.comet_model = self.comet_model.to("cuda")
+        self.comet_model = self.comet_model.to(DEVICES)
 
         self.model = Transformer2025().to(DEVICES)
         self.tokenizer2025 = Tokenizer2025(model_spm_path=MODEL_SPM_PATH, legacy=False)
         self.train_dataloader = TranslationDataloader(path_tsv=TSV_TRAINING, tokenizer=self.tokenizer2025).getDataloader()
         self.validation_dataloader = TranslationDataloader(path_tsv=TSV_VALIDATION, tokenizer=self.tokenizer2025).getDataloader()
         self.comet_dataloader = TranslationDataloader(path_tsv=TSV_COMET, tokenizer=self.tokenizer2025).getDataloader()
+        self.test_dataloader = TranslationDataloader(path_tsv=TSV_TEST, tokenizer=self.tokenizer2025).getDataloader()
         
         self.optimizer = torch.optim.AdamW(
             self.model.parameters(),
@@ -255,18 +278,30 @@ class Trainer2025:
                                                             num_training_step=len(self.train_dataloader) // ACCUMULATION_STEPS + 1,
                                                             num_cycles=0.5,
                                                             min_lr_ratio=0.1)
+        self.last_step, self.last_epoch = -2, -2
         
+        if os.path.exists(LOAD_CHECKPOINT_PATH):
+            self.last_step, self.last_epoch = load_checkpoint(
+                filepath=LOAD_CHECKPOINT_PATH,
+                model=self.model,
+                optimizer=self.optimizer,
+                scheduler=self.scheduler,
+                scaler=self.scaler
+            )
+        print(f"LastStep: {self.last_step} and LastEpoch: {self.last_epoch}")
     def start_training(self):
         torch.manual_seed(SEED)
         np.random.seed(SEED)
         print(f"Starting training on {DEVICES}")
         print(f"Total training steps: {len(self.train_dataloader)}")
-        print(f"Warmup steps: {int(len(self.train_dataloader) * 0.15)}")
+        print(f"Total steps update: {len(self.train_dataloader) // ACCUMULATION_STEPS}")
+        print(f"Warmup steps update: {int(len(self.train_dataloader) * 0.15 // ACCUMULATION_STEPS)}")
         
         train_Transformer2025(
             model=self.model,
             train_loader=self.train_dataloader,
             val_loader=self.validation_dataloader,
+            test_loader=self.test_dataloader,
             optimizer=self.optimizer,
             criterion=self.criterion,
             epochs=EPOCHS,
@@ -284,7 +319,9 @@ class Trainer2025:
             total_step_training=len(self.train_dataloader),
             rootfoldersave=ROOT_FOLDER_SAVE,
             comet_loader=self.comet_dataloader,
-            comet_model=self.comet_model
+            comet_model=self.comet_model,
+            last_epoch=self.last_epoch,
+            last_step=self.last_step
         )
         WRITER.close()
         print("Training complete")

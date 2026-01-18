@@ -15,11 +15,11 @@ PREFETCH_FATOR = 4
 
 # Tham số dữ liệu
 MODEL_SPM_PATH = r'D:\chuyen_nganh\Machine Translation version2\source\tokenizer\unigram_40000.model'
-TSV_TRAINING = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD_train.tsv"
+TSV_TRAINING = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD_train.tsv" #
 TSV_TEST = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD_test.tsv"
 TSV_VALIDATION = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD_validation.tsv"
 TSV_COMET = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetEVBCorpus.tsv"
-LOAD_CHECKPOINT_PATH = r""
+LOAD_CHECKPOINT_PATH = r"D:\chuyen_nganh\Machine Translation version2\Saved\checkpoint1.pt" # link checkpoint pretrain
 
 # Tham số training
 SAVE_STEP = 10000 # Điều chỉnh lại 10000
