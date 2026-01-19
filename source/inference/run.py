@@ -12,7 +12,7 @@ import config
 
 class MTInference:
     def __init__(self, 
-                 checkpoint_path: str = r"D:\chuyen_nganh\Machine Translation version2\Saved\checkpoint1.pt",
+                 checkpoint_path: str = r"C:\Users\manhh\Desktop\checkpoint_79999.pt",
                  beam_width: int = 5,
                  max_len: int = None,
                  device: str = None):
@@ -96,7 +96,7 @@ class MTInference:
 
 def demo_inference():
     sequences = [
-        "sequence A",
+        "Applicable Object",
         "sequence B",
     ]
     translator = MTInference(beam_width=5)

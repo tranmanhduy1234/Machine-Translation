@@ -652,3 +652,4 @@ def validate():
         
         validator = BeamSearchValidator(model, device='cuda')
         validator.run_all_tests()
+validate()

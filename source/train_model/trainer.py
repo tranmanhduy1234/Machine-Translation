@@ -1,3 +1,5 @@
+from torch.utils.tensorboard import SummaryWriter
+import datetime
 import warnings
 warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*") # đang sử dụng bản 80
 import numpy as np
@@ -15,6 +17,8 @@ from source.tokenizer.tokenizer2025 import Tokenizer2025
 from source.build_model.model import Transformer2025
 from source.train_model.util import *
 import random
+
+WRITER = SummaryWriter(f'runs/{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
 
 class WarmupLinearDecay:
     def __init__(self, warmup_steps, total_steps_update, base_lr=1e-4, max_lr=1e-3):
@@ -75,7 +79,7 @@ def validate_step(model: Transformer2025, val_loader, criterion, devices):
             vi_ids_tgt = batchdata['vi_ids_tgt'].to(devices)
             vi_mask = batchdata['vi_mask'].to(devices)
             
-            with autocast(device_type=devices.type):
+            with autocast(device_type=devices.type, enabled=False):
                 output = model(en_ids, vi_ids_src, en_mask, vi_mask)
                 loss = criterion(output.reshape(-1, output.shape[-1]), vi_ids_tgt.reshape(-1))
             
@@ -113,10 +117,50 @@ def train_Transformer2025(model, train_loader, val_loader, test_loader,
             vi_ids_tgt = batchdata['vi_ids_tgt'].to(device)
             vi_mask = batchdata['vi_mask'].to(device)
             
-            with autocast(device_type=device.type):
+            with autocast(device_type=device.type, enabled=False):
                 output = model(en_ids, vi_ids_src, en_mask, vi_mask) # [Batch size, seq_len_tgt, vocab_size]
                 loss = criterion(output.reshape(-1, output.shape[-1]), vi_ids_tgt.reshape(-1))
+                
+            # Phòng vệ loss training
+            if not torch.isfinite(loss):
+                print(f"\n{'='*40}")
+                print(f"CẢNH BÁO KHẨN CẤP: Loss bị hỏng ({loss.item()}) tại step {idx}")
+                print(f"{'='*40}")
+                
+                print("THÔNG TIN BATCH GÂY LỖI:")
+                print(f" - Kích thước Batch (Batch Size): {en_ids.shape[0]}")
+                print(f" - Độ dài Source (Max Len En): {en_ids.shape[1]}")
+                print(f" - Độ dài Target (Max Len Vi): {vi_ids_tgt.shape[1]}")
+                
+                src_lengths = (en_ids != PADDING_TOKEN).sum(dim=1)
+                tgt_lengths = (vi_ids_tgt != PADDING_TOKEN).sum(dim=1)
+                
+                print(f" - Độ dài thực tế dài nhất (Source): {src_lengths.max().item()}")
+                print(f" - Độ dài thực tế dài nhất (Target): {tgt_lengths.max().item()}")
+                
+                longest_idx = torch.argmax(src_lengths).item()
+                print(f" -> Mẫu dài nhất nằm ở index: {longest_idx}")
 
+                print("\nDỮ LIỆU CỤ THỂ (IDs của mẫu đầu tiên):")
+                print(f" - EN IDs: {en_ids[0].tolist()}")
+                print(f" - VI Target IDs: {vi_ids_tgt[0].tolist()}")
+                
+                print("\nĐang lưu batch lỗi vào file 'bad_batch_debug.pt'...")
+                torch.save({
+                    'step': idx,
+                    'en_ids': en_ids.cpu(),
+                    'vi_ids_src': vi_ids_src.cpu(),
+                    'vi_ids_tgt': vi_ids_tgt.cpu(),
+                    'en_mask': en_mask.cpu(),
+                    'vi_mask': vi_mask.cpu(),
+                    'loss_value': loss.item()
+                }, "bad_batch_debug.pt")
+                print("=> Đã lưu xong. Hãy dùng 'torch.load' để kiểm tra file này.")
+                
+                optimizer.zero_grad(set_to_none=True)
+                torch.cuda.empty_cache()
+            # kết thúc
+            
             loss = loss / accumulation_steps
             loss_value = loss.item() * accumulation_steps
             scaler.scale(loss).backward()
@@ -157,18 +201,10 @@ def train_Transformer2025(model, train_loader, val_loader, test_loader,
                                 filepath=rootfoldersave + f"\checkpoint_{idx}.pt")
             if (idx + 1) % (save_step // 2) == 0:
                 model.eval()
+                print("\nEvaluation...")
                 loss_avg_val = validate_step(model=model, val_loader=val_loader, criterion=criterion, devices=device)
+                print()
                 logLoss(writer=writer, loss=loss_avg_val, phase="Validation", step=idx)
-                Evaludation_comet_result = cometEvaluation(
-                                model=model,
-                                comet_loader=comet_loader, 
-                                beamsearchhead=beamsearchhead, 
-                                tokenizer=tokenizer, 
-                                comet_model=comet_model, 
-                                device=device,
-                                criterion=criterion)
-                logLoss(writer=writer, loss=Evaludation_comet_result["avg_loss"], phase="Comet Evaluation", step=idx)
-                logCometEvaluation(writer=writer, step=idx, system_score=Evaludation_comet_result["comet_model_output"][-1])
                 model.train()
                 
             smoothed_loss = smoothed_loss * 0.9 + loss_value * 0.1 if idx > 0 else loss_value
@@ -186,16 +222,8 @@ def train_Transformer2025(model, train_loader, val_loader, test_loader,
     )
     print("Starting testing...")
     loss_avg_test = validate_step(model=model, val_loader=test_loader, criterion=criterion, devices=device)
-    Evaludation_comet_result = cometEvaluation(model=model, 
-                    comet_loader=test_loader, 
-                    beamsearchhead=beamsearchhead, 
-                    tokenizer=tokenizer, 
-                    comet_model=comet_model, 
-                    devices=device, 
-                    criterion=criterion)
     print()
     print(f"Loss/Test: {loss_avg_test}")
-    print(f"System score: {Evaludation_comet_result['comet_model_output'][-1]}")
     print("ENDING........................")
     
 def cometEvaluation(model: Transformer2025, comet_loader, beamsearchhead: BeamSearchOptim, tokenizer: Tokenizer2025, comet_model, devices, criterion):
@@ -219,7 +247,7 @@ def cometEvaluation(model: Transformer2025, comet_loader, beamsearchhead: BeamSe
             en_text = batchdata["en_text"]
             vi_text = batchdata["vi_text"]
 
-            with autocast(device_type=devices.type):
+            with autocast(device_type=devices.type, enabled=False):
                 output = model(en_ids, vi_ids_src, en_mask, vi_mask)
                 loss = criterion(output.reshape(-1, output.shape[-1]), vi_ids_tgt.reshape(-1))
                 output_beamsearch = beamsearchhead.batch_translate(batch_inputs_id=en_ids, model=model,
@@ -272,7 +300,7 @@ class Trainer2025:
                                               sos_id=BOS_TOKEN, 
                                               eos_id=EOS_TOKEN, 
                                               device=DEVICES)
-        self.scaler = GradScaler(enabled=True)
+        self.scaler = GradScaler(enabled=False)
         self.scheduler = create_cosine_schedule_with_warmup(optimizer=self.optimizer,
                                                             num_warm_up=int((len(self.train_dataloader) // ACCUMULATION_STEPS + 1) * RATIO_WARMUP),
                                                             num_training_step=len(self.train_dataloader) // ACCUMULATION_STEPS + 1,
@@ -289,6 +317,9 @@ class Trainer2025:
                 scaler=self.scaler
             )
         print(f"LastStep: {self.last_step} and LastEpoch: {self.last_epoch}")
+        if self.last_epoch == -2:
+            print("Train model from scratch starting...\n")
+            
     def start_training(self):
         torch.manual_seed(SEED)
         np.random.seed(SEED)

@@ -1,11 +1,9 @@
-from torch.utils.tensorboard import SummaryWriter
-import datetime
 import torch
 
 # Tham số data training
 PIN_MEMORY = True
 NUM_WORKERS = 4
-BATCH_SIZE = 256
+BATCH_SIZE = 32
 SHUFFLE = False
 DROP_LAST = False
 PERSISTENT_WORKERS = True
@@ -15,7 +13,7 @@ PREFETCH_FATOR = 4
 
 # Tham số dữ liệu
 MODEL_SPM_PATH = r'D:\chuyen_nganh\Machine Translation version2\source\tokenizer\unigram_40000.model'
-TSV_TRAINING = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD_train.tsv" #
+TSV_TRAINING = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD_test.tsv" #
 TSV_TEST = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD_test.tsv"
 TSV_VALIDATION = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD_validation.tsv"
 TSV_COMET = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetEVBCorpus.tsv"
@@ -23,14 +21,13 @@ LOAD_CHECKPOINT_PATH = r"D:\chuyen_nganh\Machine Translation version2\Saved\chec
 
 # Tham số training
 SAVE_STEP = 10000 # Điều chỉnh lại 10000
-LOGGING_STEP = 1000# Điều chỉnh lại: 1000
-WRITER = SummaryWriter(f'runs/{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
+LOGGING_STEP = 1000 # Điều chỉnh lại: 1000
 DEVICES = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 LEARNING_RATE = 5e-4
-EPOCHS = 1
+EPOCHS = 2
 SMOOTHING = 0.1
 USE_AMP = True
-ACCUMULATION_STEPS = 1
+ACCUMULATION_STEPS = 8
 MAX_GRAD_NORM = 1.0
 SEED = 42
 WEIGHT_DECAY = 0.01
