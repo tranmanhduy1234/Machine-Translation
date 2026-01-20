@@ -26,7 +26,7 @@ class WarmupLinearDecay:
         self.total_steps = total_steps_update
         self.base_lr = base_lr
         self.max_lr = max_lr
-        self.decay_steps = total_steps_update - warmup_steps
+        self.decay_steps = max(1, total_steps_update - warmup_steps)
     
     def get_lr(self, step):
         if step >= self.total_steps: 
@@ -55,11 +55,11 @@ def get_noam_scheduler_warmup(optimizer, num_warmup_steps):
         return lr_scale * (d_model ** (-0.5))
     return LambdaLR(optimizer, lr_lambda)
 
-def create_cosine_schedule_with_warmup(optimizer, num_warm_up, num_training_step, num_cycles, min_lr_ratio):
+def create_cosine_schedule_with_warmup(optimizer, num_warm_up, num_training_update_step, num_cycles, min_lr_ratio):
     def lr_lambda(current_step):
         if current_step < num_warm_up:
             return float(current_step) / float(max(1, num_warm_up))
-        progress = float(current_step - num_warm_up) / float(max(1, num_training_step))
+        progress = float(current_step - num_warm_up) / float(max(1, num_training_update_step))
         progress = min(progress, 1.0)
         cosine_val = 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress))
         return min_lr_ratio + (1.0 - min_lr_ratio) * cosine_val
@@ -70,7 +70,7 @@ def validate_step(model: Transformer2025, val_loader, criterion, devices):
     total_loss = 0.0
     num_batches = 0
     with torch.no_grad():
-        pbar = tqdm(val_loader, desc="Validation", leave=True, total=len(val_loader))
+        pbar = tqdm(val_loader, desc="Validation", leave=False)
         for batchdata in pbar:
             en_ids = batchdata['en_ids'].to(devices)
             en_mask = batchdata['en_mask'].to(devices)
@@ -110,6 +110,7 @@ def train_Transformer2025(model, train_loader, val_loader, test_loader,
             if idx <= last_step and epoch == last_epoch:
                 pbar.update(1)
                 continue
+            
             en_ids = batchdata['en_ids'].to(device)
             en_mask = batchdata['en_mask'].to(device)
             
@@ -124,7 +125,7 @@ def train_Transformer2025(model, train_loader, val_loader, test_loader,
             # Phòng vệ loss training
             if not torch.isfinite(loss):
                 print(f"\n{'='*40}")
-                print(f"CẢNH BÁO KHẨN CẤP: Loss bị hỏng ({loss.item()}) tại step {idx}")
+                print(f"CẢNH BÁO KHẨN CẤP: Loss bị hỏng ({loss.item()}) tại step {idx} - epoch: {epoch}")
                 print(f"{'='*40}")
                 
                 print("THÔNG TIN BATCH GÂY LỖI:")
@@ -147,6 +148,7 @@ def train_Transformer2025(model, train_loader, val_loader, test_loader,
                 
                 print("\nĐang lưu batch lỗi vào file 'bad_batch_debug.pt'...")
                 torch.save({
+                    'epoch': epoch,
                     'step': idx,
                     'en_ids': en_ids.cpu(),
                     'vi_ids_src': vi_ids_src.cpu(),
@@ -159,6 +161,8 @@ def train_Transformer2025(model, train_loader, val_loader, test_loader,
                 
                 optimizer.zero_grad(set_to_none=True)
                 torch.cuda.empty_cache()
+                print("PHÁT HIỆN NaN LOSS ===> GRADIENT NaN")
+                exit(0)
             # kết thúc
             
             loss = loss / accumulation_steps
@@ -191,19 +195,19 @@ def train_Transformer2025(model, train_loader, val_loader, test_loader,
                 logLoss(writer=writer,phase="Train" ,loss=loss_value, step=idx)
                 logWeightBias_histogram_mean_std(model=model, writer=writer, index=idx)
                 
-            if (idx + 1) % save_step == 0:
+            if (idx + 1) % save_step == 0 or (idx + 1) == total_step:
                 save_checkpoint(model=model, 
                                 optimizer=optimizer, 
                                 scheduler=scheduler, 
                                 scaler=scaler, 
                                 step=idx,
                                 epoch=epoch,
-                                filepath=rootfoldersave + f"\checkpoint_{idx}.pt")
-            if (idx + 1) % (save_step // 2) == 0:
+                                filepath=rootfoldersave + f"\checkpoint_{idx}_epoch_{epoch}.pt")
+            if (idx + 1) % (save_step) == 0:
                 model.eval()
                 print("\nEvaluation...")
                 loss_avg_val = validate_step(model=model, val_loader=val_loader, criterion=criterion, devices=device)
-                print()
+                print("\n")
                 logLoss(writer=writer, loss=loss_avg_val, phase="Validation", step=idx)
                 model.train()
                 
@@ -281,7 +285,7 @@ class Trainer2025:
         self.tokenizer2025 = Tokenizer2025(model_spm_path=MODEL_SPM_PATH, legacy=False)
         self.train_dataloader = TranslationDataloader(path_tsv=TSV_TRAINING, tokenizer=self.tokenizer2025).getDataloader()
         self.validation_dataloader = TranslationDataloader(path_tsv=TSV_VALIDATION, tokenizer=self.tokenizer2025).getDataloader()
-        self.comet_dataloader = TranslationDataloader(path_tsv=TSV_COMET, tokenizer=self.tokenizer2025).getDataloader()
+        self.comet_dataloader = TranslationDataloader(path_tsv=TSV_COMET, tokenizer=self.tokenizer2025).getDataloader(batch_size=32)
         self.test_dataloader = TranslationDataloader(path_tsv=TSV_TEST, tokenizer=self.tokenizer2025).getDataloader()
         
         self.optimizer = torch.optim.AdamW(
@@ -302,10 +306,10 @@ class Trainer2025:
                                               device=DEVICES)
         self.scaler = GradScaler(enabled=False)
         self.scheduler = create_cosine_schedule_with_warmup(optimizer=self.optimizer,
-                                                            num_warm_up=int((len(self.train_dataloader) // ACCUMULATION_STEPS + 1) * RATIO_WARMUP),
-                                                            num_training_step=len(self.train_dataloader) // ACCUMULATION_STEPS + 1,
+                                                            num_warm_up=int((len(self.train_dataloader) // ACCUMULATION_STEPS + 1) * RATIO_WARMUP * EPOCHS),
+                                                            num_training_update_step=EPOCHS * (len(self.train_dataloader) // ACCUMULATION_STEPS + 1),
                                                             num_cycles=0.5,
-                                                            min_lr_ratio=0.1)
+                                                            min_lr_ratio=RATIO_DECAY)
         self.last_step, self.last_epoch = -2, -2
         
         if os.path.exists(LOAD_CHECKPOINT_PATH):
@@ -319,14 +323,14 @@ class Trainer2025:
         print(f"LastStep: {self.last_step} and LastEpoch: {self.last_epoch}")
         if self.last_epoch == -2:
             print("Train model from scratch starting...\n")
-            
+        
     def start_training(self):
         torch.manual_seed(SEED)
         np.random.seed(SEED)
         print(f"Starting training on {DEVICES}")
-        print(f"Total training steps: {len(self.train_dataloader)}")
-        print(f"Total steps update: {len(self.train_dataloader) // ACCUMULATION_STEPS}")
-        print(f"Warmup steps update: {int(len(self.train_dataloader) * 0.15 // ACCUMULATION_STEPS)}")
+        print(f"Total training steps: {len(self.train_dataloader) * EPOCHS}")
+        print(f"Total steps update: {EPOCHS * len(self.train_dataloader) // ACCUMULATION_STEPS}")
+        print(f"Warmup steps update: {EPOCHS * int(len(self.train_dataloader) * RATIO_WARMUP // ACCUMULATION_STEPS)}")
         
         train_Transformer2025(
             model=self.model,

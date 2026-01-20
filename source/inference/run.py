@@ -12,7 +12,7 @@ import config
 
 class MTInference:
     def __init__(self, 
-                 checkpoint_path: str = r"C:\Users\manhh\Desktop\checkpoint_79999.pt",
+                 checkpoint_path: str = r"D:\chuyen_nganh\Machine Translation version2\Saved\checkpoint_879999_epoch_0.pt",
                  beam_width: int = 5,
                  max_len: int = None,
                  device: str = None):
@@ -81,8 +81,8 @@ class MTInference:
                 source_mask=key_padding_mask,
                 use_cache=True
             )
-        
-        decoded_results = self.tokenizer.decode(sequences_result, skip_special_tokens=False)
+            
+        decoded_results = self.tokenizer.decode(sequences_result, skip_special_tokens=True)
         return decoded_results, scores
     
     def translate_single(self, sequence: str) -> str:
@@ -96,8 +96,9 @@ class MTInference:
 
 def demo_inference():
     sequences = [
-        "Applicable Object",
-        "sequence B",
+        "If the pipe wall thickness more than 30mm, inform us in advance (Important)",
+        "Hades Shoes H-Isabella D Este Victorian Renaissance Custom Molded Heel from $ 154.80",
+        "Among them is “Free Bird”, the most famous song of Lynyrd Skynyrd."
     ]
     translator = MTInference(beam_width=5)
     translated, scores = translator.translate(sequences)

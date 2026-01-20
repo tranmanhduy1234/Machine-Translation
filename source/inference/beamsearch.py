@@ -149,6 +149,7 @@ class BeamSearchOptim(nn.Module):
         return beam_seqs[global_best_indices], final_scores[torch.arange(batch_size, device=self.device), best_indices]
         
 if __name__=="__main__":
+    use_cache = True
     batch_ids = torch.randint(0, 40000, (8, 256)).to("cuda")
     source_mask = ~torch.zeros((8, 256), dtype=bool, device="cuda")
     model = Transformer2025().to('cuda')
@@ -156,8 +157,10 @@ if __name__=="__main__":
     import time
     start = time.time()
     with torch.no_grad():
+        if use_cache:
+            model.reset_cache()
         beamsearchhead = BeamSearchOptim(beam_width=5, max_len=256, sos_id=1, eos_id=2, device='cuda', alpha=0.6)
-        rs, _ = beamsearchhead.batch_translate(batch_inputs_id=batch_ids, model=model, source_mask=source_mask, use_cache=True)
+        rs, _ = beamsearchhead.batch_translate(batch_inputs_id=batch_ids, model=model, source_mask=source_mask, use_cache=use_cache)
         print(rs, "\n", rs.shape)
     print(time.time() - start)
     rs = rs.tolist()
