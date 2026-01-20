@@ -18,7 +18,7 @@ from source.build_model.model import Transformer2025
 from source.train_model.util import *
 import random
 
-WRITER = SummaryWriter(f'runs/{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
+WRITER = None
 
 class WarmupLinearDecay:
     def __init__(self, warmup_steps, total_steps_update, base_lr=1e-4, max_lr=1e-3):
@@ -362,5 +362,6 @@ class Trainer2025:
         print("Training complete")
 
 if __name__=="__main__":
+    WRITER = SummaryWriter(f'runs/{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
     trainer2025 = Trainer2025()
     trainer2025.start_training()
