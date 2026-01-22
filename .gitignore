@@ -10,3 +10,4 @@ source/tokenizer/tokenization.txt
 *.tsv
 *.bin
 *.pt
+*.mp4

@@ -1,31 +1,45 @@
 """
 NƠI CHẠY MODEL - THỰC NGHIỆM KẾT QUẢ
-Machine Translation Inference Module with Class-based Structure
 """
+import time
 import numpy as np
 import torch
+from typing import List, Tuple, Optional
+
+import config
 from source.tokenizer.tokenizer2025 import Tokenizer2025
 from source.inference.beamsearch import BeamSearchOptim
 from source.build_model.model import Transformer2025
 from source.train_model.util import load_checkpoint_onlymodel
-import config
+
+CHECKPOINT_PATH = r"D:\chuyen_nganh\Machine Translation version2\Saved\checkpoint_799999_epoch_1.pt"
+BEAM_WIDTH = 5
+TEST_SEQUENCES = [
+    "Upon returning to her home in Toronto, Ontario, she began training to become a bodybuilder",
+    "After approximately 10 minutes , Murray stated he left Jackson 's side to go to the restroom",
+    "We have professional technician for loading Guaranteed the goods load into container without any damage",
+    "Lam Dong is a beautiful town, captivates all those who have been there once"
+] * 4
 
 class MTInference:
     def __init__(self, 
-                 checkpoint_path: str = r"D:\chuyen_nganh\Machine Translation version2\Saved\checkpoint_879999_epoch_0.pt",
+                 checkpoint_path: str,
                  beam_width: int = 5,
                  max_len: int = None,
                  device: str = None):
+        
         self.device = device or config.DEVICES
         self.max_len = max_len or config.MAX_LEN_INFERENCE
         self.checkpoint_path = checkpoint_path
         self.beam_width = beam_width
         
-        self.tokenizer = None
-        self.model = None
-        self.beam_search = None
+        self.tokenizer: Optional[Tokenizer2025] = None
+        self.model: Optional[Transformer2025] = None
+        self.beam_search: Optional[BeamSearchOptim] = None
         
+        print(f"Initializing Model on {self.device}...")
         self._initialize_components()
+        print("Model loaded successfully.")
     
     def _initialize_components(self):
         self.tokenizer = Tokenizer2025(
@@ -35,7 +49,7 @@ class MTInference:
         
         self.model = Transformer2025().to(device=self.device)
         load_checkpoint_onlymodel(self.checkpoint_path, model=self.model)
-        self.model.eval()
+        self.model.eval() 
         
         self.beam_search = BeamSearchOptim(
             beam_width=self.beam_width,
@@ -45,9 +59,8 @@ class MTInference:
             device=self.device
         )
     
-    def _prepare_batch(self, sequences: list) -> tuple:
+    def _prepare_batch(self, sequences: List[str]) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_size = len(sequences)
-        
         sequences_encoded, _ = self.tokenizer.encode(sequences)
         max_length_src = max(map(len, sequences_encoded))
         padding_token_id = self.tokenizer.get_pad_token()[0]
@@ -63,60 +76,95 @@ class MTInference:
         
         key_padding_mask = (encoded_padded != padding_token_id)
         
-        encoded_padded = torch.from_numpy(encoded_padded).to(self.device)
-        key_padding_mask = torch.from_numpy(key_padding_mask).to(self.device)
+        encoded_tensor = torch.from_numpy(encoded_padded).to(self.device)
+        mask_tensor = torch.from_numpy(key_padding_mask).to(self.device)
         
-        return encoded_padded, key_padding_mask
+        return encoded_tensor, mask_tensor
     
-    def translate(self, sequences: list) -> tuple:
+    def translate(self, sequences: List[str], use_cache: bool = True) -> Tuple[List[str], List[float]]:
         if not sequences:
-            raise ValueError("sequences không được để trống")
-        
+            raise ValueError("Danh sách câu đầu vào không được để trống.")
+        sequences = [text + "." for text in sequences]
         encoded_padded, key_padding_mask = self._prepare_batch(sequences)
         
-        with torch.no_grad():
+        with torch.inference_mode():
             sequences_result, scores = self.beam_search.batch_translate(
                 encoded_padded,
                 model=self.model,
                 source_mask=key_padding_mask,
-                use_cache=True
+                use_cache=use_cache
             )
             
         decoded_results = self.tokenizer.decode(sequences_result, skip_special_tokens=True)
         return decoded_results, scores
-    
-    def translate_single(self, sequence: str) -> str:
-        results, _ = self.translate([sequence])
-        return results[0]
-    
-    def __del__(self):
-        if self.model is not None:
-            self.model.cpu()
-            torch.cuda.empty_cache()
 
-def demo_inference():
-    sequences = [
-        "If the pipe wall thickness more than 30mm, inform us in advance (Important)",
-        "Hades Shoes H-Isabella D Este Victorian Renaissance Custom Molded Heel from $ 154.80",
-        "Among them is “Free Bird”, the most famous song of Lynyrd Skynyrd."
-    ]
-    translator = MTInference(beam_width=5)
-    translated, scores = translator.translate(sequences)
+    def cleanup(self):
+        if self.model is not None:
+            del self.model
+        if self.beam_search is not None:
+            del self.beam_search
+        torch.cuda.empty_cache()
+
+def run_demo(translator: MTInference, sequences: List[str]):
+    print("\n" + "="*20 + " DEMO TRANSLATION " + "="*20)
+    start = time.time()
+    translated, scores = translator.translate(sequences, use_cache=True)
+    end = time.time()
     
-    print("Input sequences:")
-    for seq in sequences:
-        print(f"  - {seq}")
+    for src, tgt, score in zip(sequences, translated, scores):
+        print(f"Src: {src}")
+        print(f"Tgt: {tgt}")
+        print(f"Score: {score:.4f}")
+        print("-" * 10)
+    print(f"Demo time: {end - start:.4f}s")
+
+def run_benchmark(translator: MTInference, sequences: List[str], n_runs: int = 10):
+    print(f"\n" + "="*20 + f" BENCHMARK (Runs: {n_runs}, Batch: {len(sequences)}) " + "="*20)
+    print("Heating up GPU...")
+    translator.translate(sequences, use_cache=True)
+    torch.cuda.synchronize()
     
-    print("\nTranslated sequences:")
-    for trans in translated:
-        print(f"  - {trans}")
+    total_time_no_cache = 0
+    for _ in range(n_runs):
+        start = time.time()
+        translator.translate(sequences, use_cache=False)
+        torch.cuda.synchronize()
+        end = time.time()
+        total_time_no_cache += (end - start)
     
-    print("\nScores:")
-    for score in scores:
-        print(f"  - {score}")
+    avg_no_cache = total_time_no_cache / n_runs
+    print(f"Without Cache (Avg): {avg_no_cache:.4f}s / batch")
+
+    total_time_cache = 0
+    for _ in range(n_runs):
+        start = time.time()
+        translator.translate(sequences, use_cache=True)
+        torch.cuda.synchronize()
+        end = time.time()
+        total_time_cache += (end - start)
     
-    single_result = translator.translate_single("Hello world")
-    print(f"\nSingle translation: {single_result}")
+    avg_cache = total_time_cache / n_runs
+    print(f"With Cache    (Avg): {avg_cache:.4f}s / batch")
+    
+    if avg_cache < avg_no_cache:
+        speedup = (avg_no_cache - avg_cache) / avg_no_cache * 100
+        print(f"Speedup: {speedup:.2f}% <=> avg_cache/avg_without_cache: {avg_no_cache/avg_cache:.2f}x")
+    else:
+        print("Cache is slower (Check implementation overhead)")
 
 if __name__ == "__main__":
-    demo_inference()
+    try:
+        translator = MTInference(
+            checkpoint_path=CHECKPOINT_PATH,
+            beam_width=BEAM_WIDTH
+        )
+        
+        run_demo(translator, TEST_SEQUENCES[:4])
+        
+        # run_benchmark(translator, TEST_SEQUENCES, n_runs=10)
+        
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        if 'translator' in locals():
+            translator.cleanup()

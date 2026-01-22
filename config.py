@@ -19,7 +19,7 @@ TSV_TEST = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\data
 TSV_VALIDATION = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetTMD_validation.tsv"
 TSV_COMET = r"D:\chuyen_nganh\Machine Translation version2\source\dataloader\datasetEVBCorpus.tsv"
 
-LOAD_CHECKPOINT_PATH = r"D:\chuyen_nganh\Machine Translation version2\Saved\checkpoint_879999_epoch_0.pt" # link checkpoint pretrain
+LOAD_CHECKPOINT_PATH = r"D:\chuyen_nganh\Machine Translation version2\Saved\checkpoint_799999_epoch_2.pt" # link checkpoint pretrain
 
 # Tham số training
 SAVE_STEP = 100000

@@ -240,6 +240,7 @@ def cometEvaluation(model: Transformer2025, comet_loader, beamsearchhead: BeamSe
         for batchdata in pbar:
             rand_n = random.random()
             if rand_n < THRESHOLD:
+                pbar.update(1)
                 continue
             en_ids = batchdata['en_ids'].to(devices)
             en_mask = batchdata['en_mask'].to(devices)
@@ -286,7 +287,7 @@ class Trainer2025:
         self.train_dataloader = TranslationDataloader(path_tsv=TSV_TRAINING, tokenizer=self.tokenizer2025).getDataloader()
         self.validation_dataloader = TranslationDataloader(path_tsv=TSV_VALIDATION, tokenizer=self.tokenizer2025).getDataloader()
         self.comet_dataloader = TranslationDataloader(path_tsv=TSV_COMET, tokenizer=self.tokenizer2025).getDataloader(batch_size=32)
-        self.test_dataloader = TranslationDataloader(path_tsv=TSV_TEST, tokenizer=self.tokenizer2025).getDataloader()
+        self.test_dataloader = TranslationDataloader(path_tsv=TSV_TEST, tokenizer=self.tokenizer2025).getDataloader(batch_size=32)
         
         self.optimizer = torch.optim.AdamW(
             self.model.parameters(),
@@ -324,6 +325,15 @@ class Trainer2025:
         if self.last_epoch == -2:
             print("Train model from scratch starting...\n")
         
+        # comet evaluation
+        rs = cometEvaluation(model=self.model,
+                        comet_loader=self.comet_dataloader,
+                        beamsearchhead=self.beamsearchhead,
+                        tokenizer=self.tokenizer2025, comet_model=self.comet_model,
+                        devices=DEVICES, criterion=self.criterion)
+        print(rs)
+        exit(0)
+    
     def start_training(self):
         torch.manual_seed(SEED)
         np.random.seed(SEED)
