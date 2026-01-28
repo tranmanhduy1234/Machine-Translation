@@ -12,9 +12,9 @@ class DecoderBlock(nn.Module):
         self.self_mha = OptimizedFlashMHA(embed_dim=embed_dim, num_heads=num_heads, bias=bias, dropout_p=dropout)
         self.cross_mha = OptimizedFlashMHA(embed_dim=embed_dim, num_heads=num_heads, bias=bias, dropout_p=dropout)
         self.ffn = FeedForwardNetwork_standard(d_model=embed_dim, d_ff=ffn_hidden_dim, activation='gelu', dropout=dropout, bias=bias)
-        self.norm1 = nn.RMSNorm(embed_dim)
-        self.norm2 = nn.RMSNorm(embed_dim)
-        self.norm3 = nn.RMSNorm(embed_dim)
+        self.norm1 = nn.RMSNorm(embed_dim, eps=1e-6)
+        self.norm2 = nn.RMSNorm(embed_dim, eps=1e-6)
+        self.norm3 = nn.RMSNorm(embed_dim, eps=1e-6)
         self.dropout = nn.Dropout(dropout)
         
         # kv_cache [batch_size, num_head, seq_len, head_dim]

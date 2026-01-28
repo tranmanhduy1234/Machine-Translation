@@ -28,7 +28,6 @@ DEVICES = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 LEARNING_RATE = 5e-4
 EPOCHS = 4
 SMOOTHING = 0.1
-USE_AMP = True
 ACCUMULATION_STEPS = 8
 MAX_GRAD_NORM = 1.0
 SEED = 28

@@ -3,7 +3,7 @@ import torch
 import os
 import numpy as np
 from source.build_model.model import Transformer2025
-import config 
+import config
 
 def logGradient_histogram_mean_std(model: Transformer2025, writer, index): # Log gradient truyền qua từng lớp. - dạng histogram
     for name, param in model.named_parameters():
@@ -11,7 +11,7 @@ def logGradient_histogram_mean_std(model: Transformer2025, writer, index): # Log
             w = param.data
             writer.add_histogram(f"Gradients/{name}", param.grad, index)
             writer.add_scalar(f"Gradients_RMSNorm/{name}", param.grad.norm().item() / math.sqrt(w.numel()), index)
-            
+
 def logWeightBias_histogram_mean_std(model, writer, index): # Bản đồ weight. - dạng histogram
     for name, param in model.named_parameters():
         w = param.data

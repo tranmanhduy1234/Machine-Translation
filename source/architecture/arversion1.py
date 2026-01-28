@@ -9,6 +9,7 @@ vocab_size = 40000
 embedding_dropout = 0.0
 encoder_dropout = [0.1 + i * 0.001 for i in range(numlayer_enc)]
 decoder_dropout = [0.1 + i * 0.001 for i in range(numlayer_dec)]
+
 output_projection_bias = False
 encoder_bias = [False, False, False, False, False, False]
 decoder_bias = [False, False, False, False, False, False]

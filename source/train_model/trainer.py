@@ -185,8 +185,7 @@ def train_Transformer2025(model, train_loader, val_loader, test_loader,
                 optimizer.zero_grad(set_to_none=True)
                 if old_scale <= scaler.get_scale():
                     scheduler.step()
-                else:
-                    logSkip(writer=writer, step=idx)
+                    
                 current_lr = optimizer.param_groups[0]['lr']
                 if (idx + 1) % logging_step == 0:
                     logLearningRate(writer=writer, lr=current_lr, step=idx)

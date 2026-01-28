@@ -18,7 +18,7 @@ TEST_SEQUENCES = [
     "Upon returning to her home in Toronto, Ontario, she began training to become a bodybuilder",
     "After approximately 10 minutes , Murray stated he left Jackson 's side to go to the restroom",
     "We have professional technician for loading Guaranteed the goods load into container without any damage",
-    "Lam Dong is a beautiful town, captivates all those who have been there once"
+    "Di Linh is a beautiful town, captivates all those who have been there once"
 ] * 4
 
 class MTInference:
@@ -118,6 +118,10 @@ def run_demo(translator: MTInference, sequences: List[str]):
         print("-" * 10)
     print(f"Demo time: {end - start:.4f}s")
 
+def run_translation(translator: MTInference, sequences: List[str]):
+    translated, scores = translator.translate(sequences, use_cache=True)
+    return translated
+    
 def run_benchmark(translator: MTInference, sequences: List[str], n_runs: int = 10):
     print(f"\n" + "="*20 + f" BENCHMARK (Runs: {n_runs}, Batch: {len(sequences)}) " + "="*20)
     print("Heating up GPU...")
@@ -160,7 +164,6 @@ if __name__ == "__main__":
         )
         
         run_demo(translator, TEST_SEQUENCES[:4])
-        
         # run_benchmark(translator, TEST_SEQUENCES, n_runs=10)
         
     except Exception as e:

@@ -1,0 +1,22 @@
+* Document tổng hợp kinh nghiệm và kiến thức
+- Kiến trúc transformer (self-attn)
+- teacher forcing
+- Gelu activation
+- RMS Norm
+- Embedding
+- Khởi tạo trọng số
+- Flash Attention (các kernel) + Fused kernel
+- kv_cache + lưu nội bộ + reorder.
+- Quá trình inference autogressive
+- dynamic padding + preprocess
+- beamsearch head
+- sentence unigram
+- Định luật chinchila khi chuẩn bị dữ liệu
+- Các tham số theo dõi training
+- Scheduler (nêu 3 ví dụ)
+- Adam/AdamW
+- Accummulation
+- Criterion
+- GradScaler + AMP autocast
+- System training (vast ai)
+- Curriculum training
