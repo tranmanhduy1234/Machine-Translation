@@ -103,6 +103,7 @@ class Transformer2025(nn.Module):
     # input_shape: [batch_size, seq_len, embed_dim] -> output: [batch_size, seq_len, embed_dim]
     def inference_encoder_layer(self, input_encoder, src_kpmask, is_causal):
         encoder_output = input_encoder
+        print(f"Shape after preEncode: {encoder_output.dtype}")
         for encoder_layer in self.encoder_component:
             encoder_output = encoder_layer(encoder_output, key_padding_mask=src_kpmask, is_causal=is_causal)
         return encoder_output

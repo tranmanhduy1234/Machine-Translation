@@ -179,8 +179,8 @@ def train_Transformer2025(model, train_loader, val_loader, test_loader,
                 scaler.update()
                 
                 if (idx + 1) % logging_step == 0:
-                    logGradient_histogram_mean_std(model=model, writer=writer, index=idx)
-                    log_health_metrics(model=model, writer=writer, index=idx)
+                    logGradient_histogram_mean_std(model=model, writer=writer, index=idx + total_step * epoch)
+                    log_health_metrics(model=model, writer=writer, index=idx + total_step * epoch)
                 
                 optimizer.zero_grad(set_to_none=True)
                 if old_scale <= scaler.get_scale():
@@ -188,11 +188,11 @@ def train_Transformer2025(model, train_loader, val_loader, test_loader,
                     
                 current_lr = optimizer.param_groups[0]['lr']
                 if (idx + 1) % logging_step == 0:
-                    logLearningRate(writer=writer, lr=current_lr, step=idx)
+                    logLearningRate(writer=writer, lr=current_lr, step=idx + total_step * epoch)
             
             if (idx + 1) % logging_step == 0:
-                logLoss(writer=writer,phase="Train" ,loss=loss_value, step=idx)
-                logWeightBias_histogram_mean_std(model=model, writer=writer, index=idx)
+                logLoss(writer=writer,phase="Train" ,loss=loss_value, step=idx + total_step * epoch)
+                logWeightBias_histogram_mean_std(model=model, writer=writer, index=idx + total_step * epoch)
                 
             if (idx + 1) % save_step == 0 or (idx + 1) == total_step:
                 save_checkpoint(model=model, 
@@ -207,7 +207,7 @@ def train_Transformer2025(model, train_loader, val_loader, test_loader,
                 print("\nEvaluation...")
                 loss_avg_val = validate_step(model=model, val_loader=val_loader, criterion=criterion, devices=device)
                 print("\n")
-                logLoss(writer=writer, loss=loss_avg_val, phase="Validation", step=idx)
+                logLoss(writer=writer, loss=loss_avg_val, phase="Validation", step=idx + total_step * epoch)
                 model.train()
                 
             smoothed_loss = smoothed_loss * 0.9 + loss_value * 0.1 if idx > 0 else loss_value
