@@ -81,7 +81,7 @@ class OptimizedFlashMHA(nn.Module):
                                       key_padding_mask=key_padding_mask, 
                                       device=query.device)
         
-        with torch.nn.attention.sdpa_kernel([SDPBackend.EFFICIENT_ATTENTION]):
+        with torch.nn.attention.sdpa_kernel([SDPBackend.EFFICIENT_ATTENTION, SDPBackend.FLASH_ATTENTION, SDPBackend.MATH]):
             attn_output = F.scaled_dot_product_attention(
                 q, k, v,
                 attn_mask=attn_mask,

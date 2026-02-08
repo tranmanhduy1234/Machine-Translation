@@ -237,10 +237,6 @@ def cometEvaluation(model: Transformer2025, comet_loader, beamsearchhead: BeamSe
     with torch.no_grad():
         pbar = tqdm(comet_loader, desc="CometValidation/Random Threshold Drop", leave=True, total=len(comet_loader))
         for batchdata in pbar:
-            rand_n = random.random()
-            if rand_n < THRESHOLD:
-                pbar.update(1)
-                continue
             en_ids = batchdata['en_ids'].to(devices)
             en_mask = batchdata['en_mask'].to(devices)
             
@@ -325,13 +321,13 @@ class Trainer2025:
             print("Train model from scratch starting...\n")
         
         # comet evaluation
-        rs = cometEvaluation(model=self.model,
-                        comet_loader=self.comet_dataloader,
-                        beamsearchhead=self.beamsearchhead,
-                        tokenizer=self.tokenizer2025, comet_model=self.comet_model,
-                        devices=DEVICES, criterion=self.criterion)
-        print(rs)
-        exit(0)
+        # rs = cometEvaluation(model=self.model,
+        #                 comet_loader=self.comet_dataloader,
+        #                 beamsearchhead=self.beamsearchhead,
+        #                 tokenizer=self.tokenizer2025, comet_model=self.comet_model,
+        #                 devices=DEVICES, criterion=self.criterion)
+        # print(rs)
+        # exit(0)
     
     def start_training(self):
         torch.manual_seed(SEED)
