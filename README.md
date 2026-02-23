@@ -150,7 +150,7 @@ with torch.nn.attention.sdpa_kernel([SDPBackend.EFFICIENT_ATTENTION, SDPBackend.
 
 ---
 
-## 1.8 Optimizer & Scheduler
+## 1.7 Optimizer & Scheduler
 
 ### **AdamW**
 
@@ -173,7 +173,7 @@ with torch.nn.attention.sdpa_kernel([SDPBackend.EFFICIENT_ATTENTION, SDPBackend.
 
 ---
 
-## 1.9 Gradient accumulation & clipping
+## 1.8 Gradient accumulation & clipping
 
 - **Accumulation steps**: 8 – cộng gradient 8 batch rồi mới update
 - **Max gradient norm**: 1.0 – `nn.utils.clip_grad_norm_`
@@ -181,7 +181,7 @@ with torch.nn.attention.sdpa_kernel([SDPBackend.EFFICIENT_ATTENTION, SDPBackend.
 
 ---
 
-## 1.10 Loss & Regularization
+## 1.9 Loss & Regularization
 
 ### **CrossEntropyLoss**
 
@@ -190,7 +190,7 @@ with torch.nn.attention.sdpa_kernel([SDPBackend.EFFICIENT_ATTENTION, SDPBackend.
 
 ---
 
-## 1.11 Dropout & Layer-specific
+## 1.10 Dropout & Layer-specific
 
 - **Encoder dropout**: `[0.1, 0.101, 0.102, 0.103, 0.104, 0.105]` – tăng dần theo layer
 - **Decoder dropout**: tương tự
@@ -520,6 +520,9 @@ translator.cleanup()
 
 ---
 
+## Kết quả
+![kết quả](rs.jpg)
+- Đạt 0.725 điểm qua phương pháp đánh giá chất lượng mô hình dịch bằng model Comet, trên tập dữ liệu EVBCorpus 2.0
 ## Tài liệu tham khảo (recap.txt)
 
 - Kiến trúc Transformer, self-attention
