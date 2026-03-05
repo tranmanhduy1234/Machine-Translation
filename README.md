@@ -1,6 +1,6 @@
 # Machine Translation
 ## Hệ thống dịch máy thần kinh Anh → Việt với Transformer
-
+1/1/2026
 ---
 
 <p align="center">
