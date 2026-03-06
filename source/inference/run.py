@@ -12,7 +12,7 @@ from source.inference.beamsearch import BeamSearchOptim
 from source.build_model.model import Transformer2025
 from source.train_model.util import load_checkpoint_onlymodel
 
-CHECKPOINT_PATH = r"D:\chuyen_nganh\Machine Translation version2\Saved\checkpoint_799999_epoch_1.pt"
+CHECKPOINT_PATH = r"D:\chuyen_nganh\Machine-Translation\source\Saved\checkpoint_799999_epoch_1.pt"
 BEAM_WIDTH = 5
 TEST_SEQUENCES = [
     "Upon returning to her home in Toronto, Ontario, she began training to become a bodybuilder",

@@ -1,6 +1,10 @@
 # Machine Translation
 ## Hệ thống dịch máy thần kinh Anh → Việt với Transformer
+---
 
+## Kết quả
+![kết quả](rs.jpg)
+- Đạt 0.725 điểm qua phương pháp đánh giá chất lượng mô hình dịch bằng model Comet, trên tập dữ liệu EVBCorpus 2.0
 ---
 
 <p align="center">
@@ -520,9 +524,6 @@ translator.cleanup()
 
 ---
 
-## Kết quả
-![kết quả](rs.jpg)
-- Đạt 0.725 điểm qua phương pháp đánh giá chất lượng mô hình dịch bằng model Comet, trên tập dữ liệu EVBCorpus 2.0
 ## Tài liệu tham khảo (recap.txt)
 
 - Kiến trúc Transformer, self-attention
